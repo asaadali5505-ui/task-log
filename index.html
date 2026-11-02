@@ -1,0 +1,1343 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>سجل المهام</title>
+<meta name="description" content="تسجيل المهام وحالاتها ومشاركة تقريرها عبر واتساب، مع أرشيف شهري، ويعمل دون إنترنت.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="سجل المهام">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#EDF0F3" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0E1318" media="(prefers-color-scheme: dark)">
+<meta name="format-detection" content="telephone=no">
+<style>
+/* Layout: a ruled daily log sheet. Narrow screens: one column with a fixed send bar at the bottom. Wide screens (RTL): the sheet on the right, report and archive panels beside it. Fonts: the device's own Arabic system font, so nothing is downloaded. */
+:root{
+  --paper:#EDF0F3;
+  --sheet:#FFFFFF;
+  --ink:#15202B;
+  --ink-2:#4E5C6B;
+  --ink-3:#778492;
+  --rule:#DCE2E8;
+  --rule-strong:#C3CCD6;
+  --accent:#1D4C9E;
+  --accent-soft:#E2EAF7;
+  --on-accent:#FFFFFF;
+  --st-pending:#A64F1C;
+  --st-progress:#8F6400;
+  --st-sent:#6A4BB0;
+  --st-replied:#0D7480;
+  --st-done:#17734A;
+  --done-soft:#DFF1E7;
+  --warn-soft:#FBF0D9;
+  --danger:#B42318;
+  --wa:#17824A;
+  --on-wa:#FFFFFF;
+  --chat:#ECE5DD;
+  --bubble:#D9FDD3;
+  --bubble-ink:#111B21;
+  --shadow:0 1px 2px rgb(20 32 48 / .06), 0 6px 20px rgb(20 32 48 / .06);
+  --f-ui:system-ui,-apple-system,'SF Arabic','Geeza Pro','Segoe UI',Tahoma,'Noto Sans Arabic',sans-serif;
+  --r:14px;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --paper:#0E1318; --sheet:#161D24; --ink:#E5EBF1; --ink-2:#A6B2BF; --ink-3:#7F8C99;
+    --rule:#26313B; --rule-strong:#36434F; --accent:#8DB2F2; --accent-soft:#1B2A42; --on-accent:#0E1318;
+    --st-pending:#F0A46E; --st-progress:#E2B648; --st-sent:#B6A0F0; --st-replied:#5CC6CF; --st-done:#57C793;
+    --done-soft:#14301F; --warn-soft:#33290F; --danger:#F2877C;
+    --wa:#1E8C50; --on-wa:#FFFFFF; --chat:#0B141A; --bubble:#144D37; --bubble-ink:#E9EDEF;
+    --shadow:0 1px 2px rgb(0 0 0 / .3);
+    color-scheme:dark;
+  }
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--f-ui);font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent;padding-top:env(safe-area-inset-top, 0px)}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top, 0px);background:var(--paper);z-index:40}
+button,input,textarea{font-family:inherit}
+[hidden]{display:none !important}
+.ico{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+
+[data-st="pending"]{--c:var(--st-pending)}
+[data-st="progress"]{--c:var(--st-progress)}
+[data-st="sent"]{--c:var(--st-sent)}
+[data-st="replied"]{--c:var(--st-replied)}
+[data-st="done"]{--c:var(--st-done)}
+
+.app{max-width:1140px;margin:0 auto;padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));padding-block:20px calc(112px + env(safe-area-inset-bottom, 0px))}
+.layout{display:grid;gap:20px}
+.main{min-width:0;display:grid;gap:14px;align-content:start}
+.side{min-width:0;display:grid;gap:20px;align-content:start}
+
+/* header */
+.top{display:grid;gap:2px;margin-bottom:14px}
+h1{font-weight:800;font-size:clamp(28px, 7vw, 36px);letter-spacing:-.01em;line-height:1.15;margin:0;text-wrap:balance}
+.sync{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink-2);margin:0}
+.sync i{width:8px;height:8px;border-radius:50%;background:var(--ink-3);display:inline-block;flex:none}
+.sync[data-state="ready"] i{background:var(--st-done)}
+.sync[data-state="warn"] i{background:var(--st-pending)}
+
+.tip{display:flex;gap:12px;align-items:flex-start;background:var(--accent-soft);color:var(--ink);border-radius:12px;padding:12px 14px;margin-bottom:14px;font-size:14px}
+.tip p{margin:0;flex:1;min-width:0}
+.tip b{font-weight:700}
+.tip .icon-btn{width:34px;height:34px;background:transparent;border-color:transparent}
+
+/* month-end banner */
+.month-banner{background:var(--accent-soft);border-radius:12px;padding:14px 16px;margin-bottom:14px;display:grid;gap:10px}
+.month-banner h2{margin:0;font-size:18px;font-weight:800}
+.month-banner p{margin:0;font-size:14px;color:var(--ink-2)}
+.month-banner .row{display:flex;flex-wrap:wrap;gap:8px}
+.month-banner .hint{font-size:12px;color:var(--ink-3)}
+
+/* period */
+.period{display:grid;gap:10px}
+.seg{display:flex;background:var(--sheet);border:1px solid var(--rule);border-radius:999px;padding:3px;gap:2px}
+.seg button{flex:1;border:0;background:transparent;color:var(--ink-2);font-weight:600;font-size:15px;padding:6px 12px;border-radius:999px;cursor:pointer;min-height:38px;transition:background .15s,color .15s}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--on-accent)}
+.nav{display:flex;align-items:center;gap:8px}
+.icon-btn{width:44px;height:44px;border-radius:50%;border:1px solid var(--rule);background:var(--sheet);color:var(--ink-2);display:grid;place-items:center;cursor:pointer;flex:none;padding:0}
+.icon-btn.ghost{border-color:transparent;background:transparent}
+.plabel-wrap{position:relative;flex:1;min-width:0;display:grid;justify-items:center;padding:2px 4px;border-radius:12px}
+.plabel{font-size:21px;font-weight:700;line-height:1.3;text-align:center;text-wrap:balance}
+.plabel-cap{display:flex;align-items:center;gap:4px;font-size:12px;color:var(--ink-3)}
+.plabel-cap .ico{width:14px;height:14px}
+.tag{font-size:12px;font-weight:700;padding:1px 8px;border-radius:99px;vertical-align:middle;margin-inline-start:6px;white-space:nowrap}
+.tag.today{color:var(--accent);background:var(--accent-soft)}
+.tag.arch{color:var(--ink-2);background:var(--paper);border:1px solid var(--rule)}
+#pick{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;border:0;padding:0;margin:0;-webkit-appearance:none;appearance:none}
+.plabel-wrap:focus-within{outline:2px solid var(--accent);outline-offset:2px}
+.link-btn{justify-self:center;border:0;background:none;color:var(--accent);font-weight:700;font-size:14px;cursor:pointer;padding:6px 10px;border-radius:8px}
+
+/* status chips */
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--rule-strong);background:var(--sheet);color:var(--ink-2);border-radius:999px;padding:5px 12px;min-height:38px;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap}
+.chip::before{content:"";width:9px;height:9px;border-radius:50%;background:var(--c, var(--ink-3));flex:none}
+.chip[aria-pressed="true"]{background:var(--c);border-color:var(--c);color:var(--sheet)}
+.chip[aria-pressed="true"]::before{background:var(--sheet)}
+
+/* sheet */
+.sheet{background:var(--sheet);border:1px solid var(--rule);border-radius:var(--r);box-shadow:var(--shadow);padding:18px 16px 6px}
+.summary{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:6px 16px;padding-bottom:16px;border-bottom:1px solid var(--rule)}
+.rate{grid-row:span 3;font-size:46px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums;color:var(--ink)}
+.rate small{font-size:24px;font-weight:700;color:var(--ink-2)}
+.rate-cap{font-size:13px;font-weight:700;color:var(--ink-2);margin:0}
+.bar{height:10px;background:var(--rule);border-radius:99px;overflow:hidden;display:flex;gap:2px}
+.bar span{display:block;height:100%;background:var(--c);transition:flex-basis .35s ease;flex:0 0 auto}
+.counts{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:13px;color:var(--ink-2);margin:0}
+.cnt{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.cnt i{width:8px;height:8px;border-radius:50%;background:var(--c);display:inline-block}
+.cnt b{font-weight:800;color:var(--ink);font-variant-numeric:tabular-nums}
+.ro-note{margin:14px 0 0;padding:10px 12px;border-radius:10px;background:var(--paper);color:var(--ink-2);font-size:14px}
+
+.add{display:grid;gap:10px;padding:16px 0;border-bottom:1px solid var(--rule)}
+.add-row{display:flex;gap:8px}
+.add-row input{flex:1;min-width:0}
+.add-cap{font-size:13px;color:var(--ink-2)}
+.add-hint{font-size:12px;color:var(--ink-3);margin:0}
+
+.input,.field input,.field textarea{width:100%;font:inherit;font-size:16px;color:var(--ink);background:var(--sheet);border:1px solid var(--rule-strong);border-radius:10px;padding:9px 12px;min-height:46px}
+.field textarea{resize:vertical;min-height:64px;line-height:1.5}
+.input:focus,.field input:focus,.field textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+::placeholder{color:var(--ink-3)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.btn{font:inherit;font-size:15px;font-weight:700;min-height:46px;padding:8px 16px;border-radius:10px;border:1px solid var(--rule-strong);background:var(--sheet);color:var(--ink);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;text-decoration:none;white-space:nowrap;-webkit-user-select:none;user-select:none}
+.btn.sm{min-height:38px;font-size:14px;padding:6px 12px}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.btn.wa{background:var(--wa);border-color:var(--wa);color:var(--on-wa)}
+.btn.danger{color:var(--danger);margin-inline-start:auto}
+.btn.danger.armed{background:var(--danger);border-color:var(--danger);color:var(--sheet)}
+@media (hover:hover){
+  .icon-btn:hover{color:var(--ink);border-color:var(--rule-strong)}
+  .icon-btn.ghost:hover{background:var(--paper)}
+  .btn:hover{border-color:var(--ink-3)}
+  .btn.primary:hover,.btn.wa:hover{filter:brightness(1.08)}
+  .chip:hover{border-color:var(--c)}
+  .check:not([disabled]):hover .ring{box-shadow:0 0 0 4px var(--paper)}
+}
+
+/* lists */
+.group{padding-top:16px}
+.group + .group{border-top:1px solid var(--rule)}
+.group-h{font-size:18px;font-weight:800;display:flex;align-items:center;gap:8px;margin:0 0 2px}
+.group-h::before{content:"";width:10px;height:10px;border-radius:50%;background:var(--c)}
+.pill{font-size:12px;font-weight:800;padding:0 9px;border-radius:99px;line-height:22px;font-variant-numeric:tabular-nums;color:var(--c);border:1px solid var(--c)}
+.tasks{list-style:none;margin:0;padding:0}
+.task + .task{border-top:1px solid var(--rule)}
+.task-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:6px;align-items:start;padding:6px 0}
+.check{width:44px;height:44px;border:0;background:none;padding:0;display:grid;place-items:center;cursor:pointer;border-radius:50%;color:var(--c)}
+.check[disabled]{cursor:default}
+.ring{width:28px;height:28px;border-radius:50%;border:2px solid var(--c);display:grid;place-items:center;color:var(--c);transition:background .15s,box-shadow .15s}
+.ring .ico{width:17px;height:17px;stroke-width:2.4}
+.task[data-st="done"] .ring{background:var(--c);color:var(--sheet)}
+.task[data-st="done"] .ring .ico{stroke-width:3}
+.t-body{padding-block:10px 8px;min-width:0}
+.t-title{margin:0;font-weight:600;overflow-wrap:anywhere;line-height:1.5}
+.task[data-st="done"] .t-title{color:var(--ink-2)}
+.t-meta{margin:2px 0 0;font-size:13px;color:var(--ink-3);display:flex;flex-wrap:wrap;gap:2px 6px}
+.t-note{color:var(--ink-2);overflow-wrap:anywhere}
+.picker{padding:0 0 14px;display:grid;gap:8px}
+.picker p{margin:0;font-size:13px;color:var(--ink-2);font-weight:600}
+
+.editor{background:var(--paper);border-radius:12px;padding:14px;margin:0 0 14px;display:grid;gap:12px}
+.field{display:grid;gap:6px;min-width:0}
+.field label,.lbl{font-size:13px;font-weight:700;color:var(--ink-2)}
+.opt{font-weight:400;color:var(--ink-3)}
+.ed-actions{display:flex;flex-wrap:wrap;gap:8px}
+.ed-date{max-width:240px}
+
+.empty{padding:22px 0 18px;display:grid;gap:6px}
+.empty-t{font-size:19px;font-weight:800;margin:0}
+.empty-s{margin:0;color:var(--ink-2);font-size:14px}
+.steps{margin:6px 0 0;padding:0;list-style:none;display:grid;gap:10px;counter-reset:s}
+.steps li{display:grid;grid-template-columns:28px minmax(0,1fr);gap:10px;align-items:start;font-size:14px;color:var(--ink-2);counter-increment:s}
+.steps li::before{content:counter(s);width:28px;height:28px;border-radius:50%;background:var(--accent-soft);color:var(--accent);font-weight:800;display:grid;place-items:center;font-size:13px}
+.steps b{color:var(--ink);font-weight:700}
+
+/* side panels */
+.panel{background:var(--sheet);border:1px solid var(--rule);border-radius:var(--r);box-shadow:var(--shadow);padding:18px 16px;display:grid;gap:14px;min-width:0;scroll-margin-top:calc(12px + env(safe-area-inset-top, 0px))}
+.panel h2{font-size:21px;font-weight:800;margin:0}
+.panel-sub{margin:-8px 0 0;font-size:13px;color:var(--ink-2)}
+.fields{display:grid;gap:10px}
+.field .hint{font-size:12px;color:var(--ink-3)}
+#s-phone{direction:ltr;text-align:right;font-variant-numeric:tabular-nums}
+.checks{display:grid;grid-template-columns:1fr 1fr;gap:2px 12px;border:0;margin:0;padding:0}
+.checks legend{font-size:13px;font-weight:700;color:var(--ink-2);padding:0;margin-bottom:4px}
+.checks label{display:flex;gap:8px;align-items:center;font-size:15px;min-height:38px;cursor:pointer}
+.checks input{width:20px;height:20px;accent-color:var(--accent);margin:0;flex:none}
+.chat{background:var(--chat);border-radius:12px;padding:12px}
+.chat-cap{font-size:12px;color:var(--ink-3);margin:0 0 8px}
+.bubble{background:var(--bubble);color:var(--bubble-ink);border-radius:12px;border-start-start-radius:3px;padding:10px 12px;white-space:pre-wrap;overflow-wrap:anywhere;font-size:14px;line-height:1.7;max-height:360px;overflow:auto;box-shadow:0 1px 1px rgb(0 0 0 / .1)}
+.bubble strong{font-weight:800}
+.to{font-size:12px;color:var(--ink-3);margin:0}
+.actions{display:grid;gap:8px}
+.actions .row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.actions .btn{width:100%}
+#copy-fallback{width:100%;min-height:140px;font:inherit;font-size:14px;color:var(--ink);background:var(--paper);border:1px solid var(--rule-strong);border-radius:10px;padding:10px}
+.note{margin:0;font-size:13px;color:var(--ink-2)}
+.note.sm{font-size:12px;color:var(--ink-3)}
+
+.arch-list{list-style:none;margin:0;padding:0;display:grid}
+.arch-item{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 10px;align-items:center;padding:12px 0}
+.arch-item + .arch-item{border-top:1px solid var(--rule)}
+.arch-name{margin:0;font-weight:800;font-size:16px}
+.arch-meta{margin:0;font-size:13px;color:var(--ink-2);font-variant-numeric:tabular-nums}
+.arch-saved{margin:0;font-size:12px;color:var(--ink-3);grid-column:1}
+.arch-saved.no{color:var(--st-pending);font-weight:600}
+.arch-btns{display:flex;gap:6px;grid-row:1 / span 3;grid-column:2}
+
+/* bottom bar */
+.dock{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--sheet);border-top:1px solid var(--rule);display:flex;gap:8px;padding-top:10px;padding-bottom:calc(10px + env(safe-area-inset-bottom, 0px));padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px))}
+.dock .btn.wa{flex:1}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom, 0px));z-index:30;background:var(--ink);color:var(--paper);padding:10px 16px;border-radius:10px;font-size:14px;max-width:calc(100% - 32px);opacity:0;pointer-events:none;transition:opacity .2s;text-align:center}
+.toast.show{opacity:1}
+
+@media (max-width:420px){
+  .checks{grid-template-columns:1fr}
+  .dock .btn{padding-inline:12px}
+  .arch-item{grid-template-columns:1fr}
+  .arch-btns{grid-row:auto;grid-column:1;margin-top:6px}
+}
+@media (min-width:900px){
+  .app{padding-block:28px calc(40px + env(safe-area-inset-bottom, 0px))}
+  .layout{grid-template-columns:minmax(0,1fr) 390px;align-items:start;gap:24px}
+  .sheet{padding:22px 24px 8px}
+  .dock{display:none}
+  .toast{bottom:calc(24px + env(safe-area-inset-bottom, 0px))}
+  .period{grid-template-columns:auto minmax(0,1fr) auto;align-items:center}
+  .period .seg{width:260px}
+}
+@media (prefers-reduced-motion: reduce){
+  *{transition:none !important;animation:none !important}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <h1>سجل المهام</h1>
+    <p class="sync" id="sync" data-state="wait"><i></i><span id="sync-text">المهام محفوظة على هذا الجهاز</span></p>
+  </header>
+
+  <div class="tip" id="install-tip" hidden>
+    <p id="install-text"><b>لتثبيته كتطبيق:</b> اضغط زر المشاركة في Safari ثم اختر (إضافة إلى الشاشة الرئيسية).</p>
+    <button type="button" class="btn primary sm" id="install-btn" hidden>تثبيت</button>
+    <button type="button" class="icon-btn" id="tip-close" aria-label="إخفاء"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+  </div>
+
+  <section class="month-banner" id="month-banner" hidden aria-live="polite"></section>
+
+  <div class="layout">
+    <div class="main">
+      <div class="period">
+        <div class="seg" id="period-seg" role="group" aria-label="الفترة">
+          <button type="button" data-period="day" aria-pressed="true">يوم</button>
+          <button type="button" data-period="week" aria-pressed="false">أسبوع</button>
+          <button type="button" data-period="month" aria-pressed="false">شهر</button>
+        </div>
+        <div class="nav" id="nav">
+          <button type="button" class="icon-btn" id="prev" aria-label="الفترة السابقة"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
+          <div class="plabel-wrap">
+            <span class="plabel" id="plabel">…</span>
+            <span class="plabel-cap"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 10h16"/></svg>اضغط لاختيار تاريخ</span>
+            <input type="date" id="pick" aria-label="اختيار تاريخ">
+          </div>
+          <button type="button" class="icon-btn" id="next" aria-label="الفترة التالية"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button>
+        </div>
+        <button type="button" class="link-btn" id="to-today" hidden>العودة إلى اليوم</button>
+      </div>
+
+      <section class="sheet" aria-label="المهام">
+        <div class="summary">
+          <span class="rate" id="rate">0<small>%</small></span>
+          <p class="rate-cap">نسبة الإنجاز</p>
+          <div class="bar" id="bar" aria-hidden="true"></div>
+          <p class="counts" id="counts"></p>
+        </div>
+        <p class="ro-note" id="ro-note" hidden></p>
+
+        <form class="add" id="add-form" autocomplete="off">
+          <div class="add-row">
+            <input class="input" id="new-title" type="text" maxlength="300" placeholder="اكتب مهمة جديدة…" aria-label="مهمة جديدة" enterkeyhint="done">
+            <button type="submit" class="btn primary">إضافة</button>
+          </div>
+          <span class="add-cap" id="new-status-lbl">حالتها عند الإضافة</span>
+          <div class="chips" id="new-status" role="group" aria-labelledby="new-status-lbl"></div>
+          <p class="add-hint" id="add-hint" hidden></p>
+        </form>
+
+        <div id="lists"></div>
+      </section>
+    </div>
+
+    <div class="side">
+      <section class="panel" id="share" aria-labelledby="share-h">
+        <h2 id="share-h">التقرير والمشاركة</h2>
+        <p class="panel-sub">يُبنى التقرير من مهام الفترة المعروضة.</p>
+
+        <div class="fields">
+          <div class="field">
+            <label for="s-title">عنوان التقرير</label>
+            <input id="s-title" type="text" maxlength="120">
+          </div>
+          <div class="field">
+            <label for="s-author">اسم المُعِد <span class="opt">(اختياري)</span></label>
+            <input id="s-author" type="text" maxlength="120" placeholder="مثل: م. أسعد">
+          </div>
+          <div class="field">
+            <label for="s-phone">رقم واتساب المستلم <span class="opt">(اختياري)</span></label>
+            <input id="s-phone" type="tel" inputmode="numeric" maxlength="20" placeholder="968XXXXXXXX">
+            <span class="hint">بالصيغة الدولية دون + أو 00. اتركه فارغاً لتختار جهة الاتصال داخل واتساب.</span>
+          </div>
+        </div>
+
+        <fieldset class="checks" id="inc-checks">
+          <legend>يتضمن التقرير</legend>
+        </fieldset>
+
+        <div class="chat">
+          <p class="chat-cap">معاينة الرسالة</p>
+          <div class="bubble" id="preview"></div>
+        </div>
+        <p class="to" id="wa-to"></p>
+
+        <div class="actions">
+          <a class="btn wa" id="wa-link" href="whatsapp://send">
+            <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 3L10 14"/><path d="M21 3l-7 18-4-7-7-4 18-7z"/></svg>
+            إرسال عبر واتساب
+          </a>
+          <div class="row" id="share-row">
+            <button type="button" class="btn" id="share-btn" hidden>
+              <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V3M8 7l4-4 4 4"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg>
+              مشاركة
+            </button>
+            <button type="button" class="btn" id="copy-btn">
+              <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>
+              نسخ النص
+            </button>
+          </div>
+          <div class="row">
+            <button type="button" class="btn" id="dl-xlsx">
+              <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 10h16M4 15h16M10 4v16"/></svg>
+              ملف Excel
+            </button>
+            <button type="button" class="btn" id="dl-txt">
+              <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>
+              ملف نصي
+            </button>
+          </div>
+          <textarea id="copy-fallback" hidden readonly aria-label="نص التقرير"></textarea>
+        </div>
+      </section>
+
+      <section class="panel" id="archive" aria-labelledby="archive-h">
+        <h2 id="archive-h">أرشيف الأشهر</h2>
+        <p class="note">في أول يوم من كل شهر تُنقل مهام الشهر السابق إلى هنا تلقائياً، ويبدأ السجل بالشهر الجديد. لكل شهر ملف Excel تحفظه في الآيباد.</p>
+        <ul class="arch-list" id="arch-list"></ul>
+      </section>
+
+      <section class="panel" id="backup" aria-labelledby="backup-h">
+        <h2 id="backup-h">النسخ الاحتياطي</h2>
+        <p class="note">كل المهام والأرشيف محفوظة داخل هذا الجهاز. النسخة الاحتياطية تحفظ كل شيء في ملف واحد، وتستخدمها أيضاً لنقل السجل إلى جهاز آخر: احفظها هنا ثم استرجعها هناك.</p>
+        <div class="actions">
+          <div class="row">
+            <button type="button" class="btn" id="bk-save">حفظ نسخة</button>
+            <button type="button" class="btn" id="bk-load">استرجاع نسخة</button>
+          </div>
+          <input type="file" id="bk-file" accept=".json,application/json" hidden>
+        </div>
+        <p class="note sm" id="bk-last"></p>
+      </section>
+    </div>
+  </div>
+
+  <nav class="dock" aria-label="إرسال سريع">
+    <a class="btn wa" id="dock-wa" href="whatsapp://send">
+      <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 3L10 14"/><path d="M21 3l-7 18-4-7-7-4 18-7z"/></svg>
+      إرسال عبر واتساب
+    </a>
+    <button type="button" class="btn" id="dock-copy">نسخ</button>
+    <button type="button" class="btn" id="dock-more">خيارات</button>
+  </nav>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+</div>
+
+<script>
+(function(){
+  'use strict';
+  var $ = function(s){ return document.querySelector(s); };
+  var MONTHS = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+  var DAYS = ['الأحد','الإثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
+
+  /* statuses: screen order = work queue first */
+  var STATUS = {
+    pending:  { label: 'لم تتم',          report: 'المهام غير المنجزة', mark: '❌', icon: '' },
+    progress: { label: 'قيد الإجراء',      report: 'قيد الإجراء',        mark: '⏳', icon: '<path d="M12 7.5V12l3 2"/>' },
+    sent:     { label: 'تم إرسال رسالة',  report: 'تم إرسال رسالة',     mark: '📨', icon: '<rect x="4.5" y="6.5" width="15" height="11" rx="1.5"/><path d="M5 8l7 4.6L19 8"/>' },
+    replied:  { label: 'تم الرد',          report: 'تم الرد',            mark: '💬', icon: '<path d="M5 6.5h14v9H10l-4 3.2V15.5H5z"/>' },
+    done:     { label: 'تمت',             report: 'المهام المنجزة',     mark: '✅', icon: '<path d="M5.5 12.5l4 4L18.5 7.5"/>' }
+  };
+  var SCREEN_ORDER = ['pending','progress','sent','replied','done'];
+  var REPORT_ORDER = ['done','replied','sent','progress','pending'];
+  var ICON_EDIT = '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/></svg>';
+  var DEFAULT_INC = { done:true, replied:true, sent:true, progress:true, pending:true };
+  var DEFAULTS = { title:'تقرير المهام', author:'', phone:'', inc: DEFAULT_INC, incNotes:true, incRate:true };
+  var KEY = 'task-log-offline:v1';
+  var isTouch = /iPad|iPhone|iPod|Android/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  var standalone = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+
+  /* ---------- dates ---------- */
+  function pad(n){ return (n < 10 ? '0' : '') + n; }
+  function isoOf(d){ return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+  function parse(s){ var p = s.split('-'); return new Date(+p[0], +p[1] - 1, +p[2]); }
+  function todayIso(){ return (typeof window.__taskLogToday === 'string' && window.__taskLogToday) || isoOf(new Date()); }
+  function monthOf(iso){ return iso.slice(0, 7); }
+  function curMonth(){ return monthOf(todayIso()); }
+  function monthStart(m){ return m + '-01'; }
+  function monthName(m){ var p = m.split('-'); return MONTHS[+p[1] - 1] + ' ' + p[0]; }
+  function monthOnly(m){ return MONTHS[+m.split('-')[1] - 1]; }
+  function nTasks(n){ return n === 0 ? 'لا مهام' : n === 1 ? 'مهمة واحدة' : n === 2 ? 'مهمتان' : n <= 10 ? n + ' مهام' : n + ' مهمة'; }
+  function addDays(s, n){ var d = parse(s); d.setDate(d.getDate() + n); return isoOf(d); }
+  function validIso(s){ return typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s) && !isNaN(parse(s).getTime()); }
+  function fmtLong(s){ var d = parse(s); return DAYS[d.getDay()] + ' ' + d.getDate() + ' ' + MONTHS[d.getMonth()] + ' ' + d.getFullYear(); }
+  function fmtShort(s){ var d = parse(s); return d.getDate() + ' ' + MONTHS[d.getMonth()]; }
+  function fmtDayShort(s){ var d = parse(s); return DAYS[d.getDay()] + ' ' + d.getDate() + ' ' + MONTHS[d.getMonth()]; }
+
+  function rangeOf(period, anchor){
+    var d = parse(anchor), s, e;
+    if (period === 'day') return { start: anchor, end: anchor };
+    if (period === 'week'){
+      s = new Date(d); s.setDate(d.getDate() - d.getDay());
+      e = new Date(s); e.setDate(s.getDate() + 6);
+      return { start: isoOf(s), end: isoOf(e) };
+    }
+    s = new Date(d.getFullYear(), d.getMonth(), 1);
+    e = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+    return { start: isoOf(s), end: isoOf(e) };
+  }
+  function spanText(r){
+    var a = parse(r.start), b = parse(r.end);
+    if (a.getFullYear() !== b.getFullYear()) return 'من ' + fmtShort(r.start) + ' ' + a.getFullYear() + ' إلى ' + fmtShort(r.end) + ' ' + b.getFullYear();
+    if (a.getMonth() !== b.getMonth()) return 'من ' + fmtShort(r.start) + ' إلى ' + fmtShort(r.end) + ' ' + b.getFullYear();
+    return 'من ' + a.getDate() + ' إلى ' + b.getDate() + ' ' + MONTHS[b.getMonth()] + ' ' + b.getFullYear();
+  }
+  function periodTitle(){
+    var p = state.period, a = state.anchor;
+    if (p === 'day') return fmtLong(a);
+    if (p === 'week') return spanText(rangeOf('week', a));
+    return monthName(monthOf(a));
+  }
+  function periodLine(){
+    var p = state.period;
+    if (p === 'day') return 'التاريخ: ' + fmtLong(state.anchor);
+    if (p === 'week') return 'الأسبوع: ' + spanText(rangeOf('week', state.anchor));
+    return 'الشهر: ' + periodTitle();
+  }
+
+  /* ---------- state & storage ---------- */
+  var state = {
+    tasks: {}, archive: {}, settings: JSON.parse(JSON.stringify(DEFAULTS)),
+    period: 'day', anchor: todayIso(), newStatus: 'pending',
+    editing: null, draft: null, picking: null, confirmDel: false,
+    lastBackup: null, tipHidden: false,
+    canStore: true, offlineReady: false, online: navigator.onLine !== false
+  };
+
+  function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]; }); }
+  function normTask(t){
+    t = t || {};
+    var st = STATUS[t.status] ? t.status : (t.done ? 'done' : 'pending');
+    var o = {
+      title: String(t.title || '').slice(0, 300),
+      note: String(t.note || '').slice(0, 1000),
+      date: validIso(t.date) ? t.date : todayIso(),
+      status: st,
+      createdAt: Number(t.createdAt) || 0,
+      statusAt: Number(t.statusAt) || Number(t.doneAt) || Number(t.createdAt) || 0,
+      updatedAt: Number(t.updatedAt) || Number(t.createdAt) || 0
+    };
+    if (typeof t.carriedFrom === 'string' && /^\d{4}-\d{2}$/.test(t.carriedFrom)) o.carriedFrom = t.carriedFrom;
+    return o;
+  }
+  function normSettings(s){
+    s = s || {};
+    var o = JSON.parse(JSON.stringify(DEFAULTS));
+    ['title','author','phone'].forEach(function(k){ if (typeof s[k] === 'string') o[k] = s[k].slice(0, 120); });
+    if (s.inc && typeof s.inc === 'object') Object.keys(DEFAULT_INC).forEach(function(k){ if (typeof s.inc[k] === 'boolean') o.inc[k] = s.inc[k]; });
+    if (typeof s.incDone === 'boolean') o.inc.done = s.incDone;
+    if (typeof s.incPending === 'boolean') o.inc.pending = s.incPending;
+    ['incNotes','incRate'].forEach(function(k){ if (typeof s[k] === 'boolean') o[k] = s[k]; });
+    return o;
+  }
+  function normArchive(a){
+    var out = {};
+    if (!a || typeof a !== 'object') return out;
+    Object.keys(a).forEach(function(m){
+      if (!/^\d{4}-\d{2}$/.test(m)) return;
+      var src = a[m] || {}, tasks = {};
+      Object.keys(src.tasks || {}).forEach(function(id){ tasks[id] = normTask(src.tasks[id]); });
+      out[m] = { tasks: tasks, archivedAt: Number(src.archivedAt) || 0, savedAt: Number(src.savedAt) || null, carried: !!src.carried, dismissed: !!src.dismissed };
+    });
+    return out;
+  }
+  function uid(){
+    try { if (window.crypto && crypto.randomUUID) return crypto.randomUUID().replace(/-/g, ''); } catch(e){}
+    return Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+  }
+
+  function load(){
+    try {
+      var raw = localStorage.getItem(KEY);
+      if (!raw) return;
+      var p = JSON.parse(raw);
+      if (!p || typeof p !== 'object') return;
+      var tasks = p.tasks || {};
+      Object.keys(tasks).forEach(function(id){ state.tasks[id] = normTask(tasks[id]); });
+      state.archive = normArchive(p.archive);
+      state.settings = normSettings(p.settings);
+      if (p.ui){
+        if (['day','week','month'].indexOf(p.ui.period) >= 0) state.period = p.ui.period;
+        else if (p.ui.period === 'all') state.period = 'month';
+        if (STATUS[p.ui.newStatus]) state.newStatus = p.ui.newStatus;
+        else if (p.ui.newDone) state.newStatus = 'done';
+        state.tipHidden = !!p.ui.tipHidden;
+      }
+      state.lastBackup = p.lastBackup || null;
+    } catch(e){ state.canStore = false; }
+  }
+  function save(){
+    try {
+      localStorage.setItem(KEY, JSON.stringify({
+        v: 2, tasks: state.tasks, archive: state.archive, settings: state.settings, lastBackup: state.lastBackup,
+        ui: { period: state.period, newStatus: state.newStatus, tipHidden: state.tipHidden }
+      }));
+      if (!state.canStore){ state.canStore = true; renderSync(); }
+    } catch(e){
+      if (state.canStore){ state.canStore = false; renderSync(); toast('تعذّر الحفظ على الجهاز. احفظ نسخة احتياطية الآن.'); }
+    }
+  }
+
+  /* ---------- monthly archive ---------- */
+  function archiveOld(){
+    var cur = curMonth(), moved = {};
+    Object.keys(state.tasks).forEach(function(id){
+      var t = state.tasks[id], m = monthOf(t.date);
+      if (m < cur){
+        var a = state.archive[m] || (state.archive[m] = { tasks: {}, archivedAt: 0, savedAt: null, carried: false, dismissed: false });
+        a.tasks[id] = t; delete state.tasks[id]; moved[m] = true;
+      }
+    });
+    var months = Object.keys(moved);
+    months.forEach(function(m){ var a = state.archive[m]; a.archivedAt = Date.now(); a.savedAt = null; a.dismissed = false; });
+    if (months.length){
+      if (state.editing && !state.tasks[state.editing]){ state.editing = null; state.draft = null; }
+      if (state.picking && !state.tasks[state.picking]) state.picking = null;
+      save();
+    }
+    return months;
+  }
+  function monthStats(tasks){
+    var c = { total: 0 }; SCREEN_ORDER.forEach(function(k){ c[k] = 0; });
+    Object.keys(tasks).forEach(function(id){ c[tasks[id].status]++; c.total++; });
+    c.rate = c.total ? Math.round(c.done * 100 / c.total) : 0;
+    return c;
+  }
+  function unfinished(m){
+    var a = state.archive[m]; if (!a) return [];
+    return Object.keys(a.tasks).filter(function(id){ return a.tasks[id].status !== 'done'; });
+  }
+
+  /* ---------- task changes (live tasks only) ---------- */
+  function addTask(t){ state.tasks[uid()] = t; save(); render(); }
+  function updateTask(id, patch){
+    if (!state.tasks[id]) return;
+    var prev = state.tasks[id];
+    var next = Object.assign({}, prev, patch, { updatedAt: Date.now() });
+    if (patch.status && patch.status !== prev.status) next.statusAt = Date.now();
+    state.tasks[id] = normTask(next);
+    save(); archiveOld(); render();
+  }
+  function removeTask(id){ delete state.tasks[id]; save(); render(); }
+
+  /* entries visible in the current period: live + archived (read-only) */
+  function visible(){
+    var r = rangeOf(state.period, state.anchor), out = [];
+    function take(src, ro, m){
+      Object.keys(src).forEach(function(id){ var t = src[id]; if (t.date >= r.start && t.date <= r.end) out.push({ id: id, t: t, ro: ro, m: m }); });
+    }
+    take(state.tasks, false, null);
+    Object.keys(state.archive).forEach(function(m){
+      if (monthStart(m) > r.end || m < monthOf(r.start)) return;
+      take(state.archive[m].tasks, true, m);
+    });
+    out.sort(function(a, b){ return a.t.date < b.t.date ? -1 : a.t.date > b.t.date ? 1 : (a.t.createdAt - b.t.createdAt); });
+    var by = {}; SCREEN_ORDER.forEach(function(k){ by[k] = []; });
+    out.forEach(function(e){ by[e.t.status].push(e); });
+    by.all = out;
+    return by;
+  }
+  function rangeEditable(){
+    var r = rangeOf(state.period, state.anchor);
+    return r.end >= monthStart(curMonth());
+  }
+
+  /* ---------- rendering ---------- */
+  function renderSync(){
+    var el = $('#sync'), txt, st = 'wait';
+    if (!state.canStore){ txt = 'الحفظ على الجهاز غير متاح، احفظ نسخة احتياطية'; st = 'warn'; }
+    else if (!('serviceWorker' in navigator) || location.protocol === 'file:'){ txt = 'المهام محفوظة على هذا الجهاز'; st = 'ready'; }
+    else if (state.offlineReady){ txt = state.online ? 'محفوظة على هذا الجهاز · يعمل دون إنترنت' : 'دون اتصال الآن · كل شيء يعمل'; st = 'ready'; }
+    else txt = 'المهام محفوظة على هذا الجهاز · جارٍ تجهيزه للعمل دون إنترنت';
+    el.dataset.state = st;
+    $('#sync-text').textContent = txt;
+  }
+
+  function chipsHTML(current, act){
+    return SCREEN_ORDER.map(function(k){
+      return '<button type="button" class="chip" data-st="' + k + '" data-act="' + act + '" aria-pressed="' + (k === current) + '">' + STATUS[k].label + '</button>';
+    }).join('');
+  }
+
+  function newTaskDate(){
+    if (state.period === 'day') return state.anchor;
+    var t = todayIso(), r = rangeOf(state.period, state.anchor), lo = r.start, ms = monthStart(curMonth());
+    if (lo < ms) lo = ms;
+    if (t < lo) return lo;
+    if (t > r.end) return r.end;
+    return t;
+  }
+
+  function renderPeriod(){
+    document.querySelectorAll('#period-seg button').forEach(function(b){ b.setAttribute('aria-pressed', String(b.dataset.period === state.period)); });
+    var r = rangeOf(state.period, state.anchor);
+    var lbl = esc(periodTitle());
+    if (state.period === 'day' && state.anchor === todayIso()) lbl += '<span class="tag today">اليوم</span>';
+    if (r.end < monthStart(curMonth())) lbl += '<span class="tag arch">مؤرشف</span>';
+    $('#plabel').innerHTML = lbl;
+    $('#pick').value = state.anchor;
+    $('#to-today').hidden = todayIso() >= r.start && todayIso() <= r.end;
+
+    var editable = rangeEditable();
+    $('#add-form').hidden = !editable;
+    var ro = $('#ro-note');
+    if (!editable){
+      ro.hidden = false;
+      ro.textContent = 'هذه الفترة من شهر مؤرشف، تُعرض للاطلاع وإرسال تقريرها فقط.';
+    } else if (r.start < monthStart(curMonth())){
+      ro.hidden = false;
+      ro.textContent = 'مهام الأيام السابقة لهذا الشهر مؤرشفة وتُعرض للاطلاع فقط.';
+    } else ro.hidden = true;
+
+    if (editable){
+      var addDate = newTaskDate(), hint = '';
+      if (state.period !== 'day') hint = 'تُضاف بتاريخ ' + fmtDayShort(addDate);
+      else if (addDate !== todayIso()) hint = 'تُضاف بتاريخ اليوم المعروض';
+      $('#add-hint').hidden = !hint;
+      $('#add-hint').textContent = hint;
+      $('#new-status').innerHTML = chipsHTML(state.newStatus, 'new-status');
+    }
+  }
+
+  function renderSummary(v){
+    var tot = v.all.length, rate = tot ? Math.round(v.done.length * 100 / tot) : 0;
+    $('#rate').innerHTML = rate + '<small>%</small>';
+    $('#bar').innerHTML = tot ? REPORT_ORDER.filter(function(k){ return v[k].length; }).map(function(k){
+      return '<span data-st="' + k + '" style="flex-basis:calc(' + (v[k].length * 100 / tot).toFixed(3) + '% - 2px)"></span>';
+    }).join('') : '';
+    $('#counts').innerHTML = REPORT_ORDER.map(function(k){
+      return '<span class="cnt" data-st="' + k + '"><i></i><b>' + v[k].length + '</b> ' + STATUS[k].label + '</span>';
+    }).join('');
+  }
+
+  function ringHTML(st){
+    return '<span class="ring">' + (STATUS[st].icon ? '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true">' + STATUS[st].icon + '</svg>' : '') + '</span>';
+  }
+
+  function rowHTML(e){
+    var id = e.id, t = e.t;
+    var editing = !e.ro && state.editing === id, picking = !e.ro && state.picking === id;
+    var meta = [];
+    if (state.period !== 'day') meta.push('<span>' + esc(fmtDayShort(t.date)) + '</span>');
+    if (t.carriedFrom) meta.push('<span>مُرحّلة من ' + esc(monthOnly(t.carriedFrom)) + '</span>');
+    if (t.note && t.note.trim()) meta.push('<span class="t-note">' + esc(t.note.trim()) + '</span>');
+    var label = 'الحالة: ' + STATUS[t.status].label;
+    return '<li class="task" data-st="' + t.status + '" data-id="' + esc(id) + '"' + (e.ro ? ' data-ro="1"' : '') + '>' +
+      '<div class="task-row">' +
+        '<button type="button" class="check" data-act="pick"' + (e.ro ? ' disabled' : '') + ' aria-expanded="' + picking + '" aria-label="' + esc(label + (e.ro ? '' : '. اضغط لتغييرها') + ': ' + t.title) + '">' + ringHTML(t.status) + '</button>' +
+        '<div class="t-body"><p class="t-title">' + esc(t.title) + '</p>' + (meta.length ? '<p class="t-meta">' + meta.join('<span aria-hidden="true">·</span>') + '</p>' : '') + '</div>' +
+        (e.ro ? '<span></span>' : '<button type="button" class="icon-btn ghost" data-act="edit" aria-expanded="' + editing + '" aria-label="تعديل: ' + esc(t.title) + '">' + ICON_EDIT + '</button>') +
+      '</div>' +
+      (picking ? '<div class="picker"><p>اختر حالة المهمة</p><div class="chips" role="group" aria-label="حالة المهمة">' + chipsHTML(t.status, 'set-status') + '</div></div>' : '') +
+      (editing ? editorHTML(t) : '') +
+    '</li>';
+  }
+
+  function editorHTML(t){
+    var d = state.draft;
+    var carry = t.status !== 'done' && t.date < todayIso();
+    return '<div class="editor">' +
+      '<div class="field"><label for="ed-title">المهمة</label><input id="ed-title" type="text" maxlength="300" data-draft="title" enterkeyhint="done" value="' + esc(d.title) + '"></div>' +
+      '<div class="field"><label for="ed-note">ملاحظة <span class="opt">(اختيارية، مثل سبب عدم الإنجاز أو خلاصة الرد)</span></label><textarea id="ed-note" rows="2" maxlength="1000" data-draft="note">' + esc(d.note) + '</textarea></div>' +
+      '<div class="field"><span class="lbl" id="ed-status-lbl">الحالة</span><div class="chips" role="group" aria-labelledby="ed-status-lbl">' + chipsHTML(d.status, 'ed-status') + '</div></div>' +
+      '<div class="field ed-date"><label for="ed-date">التاريخ</label><input id="ed-date" type="date" data-draft="date" min="' + monthStart(curMonth()) + '" value="' + esc(d.date) + '"></div>' +
+      '<div class="ed-actions">' +
+        '<button type="button" class="btn primary" data-act="save">حفظ</button>' +
+        '<button type="button" class="btn" data-act="cancel">إلغاء</button>' +
+        (carry ? '<button type="button" class="btn" data-act="carry">ترحيل إلى اليوم</button>' : '') +
+        '<button type="button" class="btn danger' + (state.confirmDel ? ' armed' : '') + '" data-act="delete">' + (state.confirmDel ? 'اضغط مرة أخرى للحذف' : 'حذف') + '</button>' +
+      '</div>' +
+    '</div>';
+  }
+
+  function emptyHTML(){
+    var anyLive = Object.keys(state.tasks).length > 0, anyArch = Object.keys(state.archive).length > 0;
+    if (anyLive || anyArch || !rangeEditable()){
+      var where = { day: state.anchor === todayIso() ? 'اليوم' : 'هذا اليوم', week: 'هذا الأسبوع', month: 'هذا الشهر' }[state.period];
+      return '<div class="empty"><p class="empty-t">لا توجد مهام في ' + where + '</p><p class="empty-s">' + (rangeEditable() ? 'اكتب مهمة في الحقل أعلاه لإضافتها، أو انتقل إلى فترة أخرى.' : 'لم تُسجَّل مهام في هذه الفترة.') + '</p></div>';
+    }
+    return '<div class="empty"><p class="empty-t">ابدأ سجلك</p><ol class="steps">' +
+      '<li><span><b>اكتب المهمة</b> في الحقل أعلاه، واختر حالتها، ثم اضغط (إضافة).</span></li>' +
+      '<li><span><b>اضغط الدائرة</b> بجانب أي مهمة لتغيير حالتها: قيد الإجراء، تم إرسال رسالة، تم الرد، أو تمت.</span></li>' +
+      '<li><span><b>أرسل التقرير</b> عبر واتساب، أو انسخه، أو احفظه ملف Excel.</span></li>' +
+    '</ol></div>';
+  }
+
+  function renderLists(v){
+    var host = $('#lists');
+    var ae = document.activeElement, fid = null, ss = null, se = null;
+    if (ae && host.contains(ae) && ae.id){ fid = ae.id; try { ss = ae.selectionStart; se = ae.selectionEnd; } catch(e){} }
+    if (!v.all.length){ host.innerHTML = emptyHTML(); return; }
+    host.innerHTML = SCREEN_ORDER.filter(function(k){ return v[k].length; }).map(function(k){
+      return '<section class="group" data-st="' + k + '" aria-labelledby="h-' + k + '"><h2 class="group-h" id="h-' + k + '">' + STATUS[k].label + ' <span class="pill">' + v[k].length + '</span></h2>' +
+        '<ul class="tasks">' + v[k].map(rowHTML).join('') + '</ul></section>';
+    }).join('');
+    if (fid){
+      var el = document.getElementById(fid);
+      if (el){ el.focus({ preventScroll: true }); try { if (ss != null) el.setSelectionRange(ss, se); } catch(e){} }
+    }
+  }
+
+  function reportText(v, opts){
+    v = v || visible();
+    opts = opts || {};
+    var st = state.settings, L = [];
+    var multi = opts.multi != null ? opts.multi : state.period !== 'day';
+    L.push('*' + (opts.title || (st.title || '').trim() || 'تقرير المهام') + '*');
+    L.push(opts.line || periodLine());
+    if ((st.author || '').trim()) L.push('المُعِد: ' + st.author.trim());
+    function item(e, i){
+      var t = e.t, l = (i + 1) + '. ' + t.title;
+      if (multi) l += ' (' + fmtShort(t.date) + ')';
+      if (st.incNotes && t.note && t.note.trim()) l += '\n    ملاحظة: ' + t.note.trim().replace(/\s*\n\s*/g, ' ');
+      return l;
+    }
+    var any = false;
+    REPORT_ORDER.forEach(function(k){
+      if (!st.inc[k] || !v[k].length) return;
+      any = true;
+      L.push(''); L.push('*' + STATUS[k].mark + ' ' + STATUS[k].report + ' (' + v[k].length + ')*');
+      v[k].forEach(function(e, i){ L.push(item(e, i)); });
+    });
+    if (!any){ L.push(''); L.push('لا توجد مهام مسجّلة في هذه الفترة'); }
+    var tot = v.all.length;
+    if (st.incRate && tot){
+      L.push(''); L.push('نسبة الإنجاز: ' + Math.round(v.done.length * 100 / tot) + '% (' + v.done.length + ' من ' + tot + ')');
+    }
+    return L.join('\n');
+  }
+  function phoneDigits(){ return (state.settings.phone || '').replace(/\D/g, '').replace(/^00/, ''); }
+  function waHref(text){
+    var p = phoneDigits();
+    if (isTouch) return 'whatsapp://send?' + (p ? 'phone=' + p + '&' : '') + 'text=' + encodeURIComponent(text);
+    return 'https://wa.me/' + p + '?text=' + encodeURIComponent(text);
+  }
+  function waFormat(text){ return esc(text).replace(/\*([^*\n]+)\*/g, '<strong>$1</strong>'); }
+
+  function renderReport(v){
+    var text = reportText(v);
+    $('#preview').innerHTML = waFormat(text);
+    var href = waHref(text);
+    $('#wa-link').href = href; $('#dock-wa').href = href;
+    var p = phoneDigits();
+    $('#wa-to').textContent = p ? ('يفتح واتساب على المحادثة مع الرقم ' + p + '. راجع الرسالة ثم اضغط إرسال.') : 'يفتح واتساب لتختار جهة الاتصال أو المجموعة، ثم تراجع الرسالة وترسلها. إن لم يكن هناك اتصال، تُرسل حين يعود.';
+    if (!$('#copy-fallback').hidden) $('#copy-fallback').value = text;
+  }
+
+  function renderIncChecks(){
+    var host = $('#inc-checks');
+    if (host.dataset.built) {
+      REPORT_ORDER.forEach(function(k){ document.getElementById('inc-' + k).checked = !!state.settings.inc[k]; });
+      $('#inc-notes').checked = !!state.settings.incNotes; $('#inc-rate').checked = !!state.settings.incRate;
+      return;
+    }
+    host.dataset.built = '1';
+    host.insertAdjacentHTML('beforeend', REPORT_ORDER.map(function(k){
+      return '<label><input type="checkbox" id="inc-' + k + '" data-inc="' + k + '"' + (state.settings.inc[k] ? ' checked' : '') + '> ' + STATUS[k].label + '</label>';
+    }).join('') +
+      '<label><input type="checkbox" id="inc-notes"' + (state.settings.incNotes ? ' checked' : '') + '> الملاحظات</label>' +
+      '<label><input type="checkbox" id="inc-rate"' + (state.settings.incRate ? ' checked' : '') + '> نسبة الإنجاز</label>');
+  }
+
+  function renderArchive(){
+    var months = Object.keys(state.archive).sort().reverse();
+    var host = $('#arch-list');
+    if (!months.length){ host.innerHTML = '<li class="note sm" style="padding:4px 0">لا توجد أشهر مؤرشفة بعد. أول أرشيف يظهر في ' + fmtLong(monthStart(nextMonth(curMonth()))) + '.</li>'; return; }
+    host.innerHTML = months.map(function(m){
+      var a = state.archive[m], c = monthStats(a.tasks);
+      return '<li class="arch-item" data-m="' + m + '">' +
+        '<p class="arch-name">' + monthName(m) + '</p>' +
+        '<p class="arch-meta">' + nTasks(c.total) + ' · أُنجز ' + c.done + ' (' + c.rate + '%)</p>' +
+        '<p class="arch-saved' + (a.savedAt ? '' : ' no') + '">' + (a.savedAt ? 'حُفظ ملفه في ' + fmtShort(isoOf(new Date(a.savedAt))) : 'لم يُحفظ ملفه في الآيباد بعد') + '</p>' +
+        '<div class="arch-btns"><button type="button" class="btn sm" data-arch="view">عرض</button><button type="button" class="btn sm" data-arch="save">حفظ الملف</button></div>' +
+      '</li>';
+    }).join('');
+  }
+  function nextMonth(m){ var p = m.split('-'), d = new Date(+p[0], +p[1], 1); return d.getFullYear() + '-' + pad(d.getMonth() + 1); }
+
+  function renderBanner(){
+    var el = $('#month-banner');
+    var m = Object.keys(state.archive).sort().reverse().find(function(k){ var a = state.archive[k]; return !a.savedAt && !a.dismissed; });
+    if (!m){ el.hidden = true; el.innerHTML = ''; return; }
+    var a = state.archive[m], c = monthStats(a.tasks), un = unfinished(m).length;
+    el.hidden = false;
+    el.dataset.m = m;
+    el.innerHTML =
+      '<h2>انتهى شهر ' + monthName(m) + '</h2>' +
+      '<p>أُرشفت مهامه (' + nTasks(c.total) + '، أُنجز منها ' + c.done + ')، وبدأ سجل ' + monthName(curMonth()) + ' من جديد. احفظ ملف الشهر في الآيباد ليبقى عندك.</p>' +
+      '<div class="row">' +
+        '<button type="button" class="btn primary" data-banner="save">حفظ ملف ' + monthOnly(m) + ' في الآيباد</button>' +
+        (un && !a.carried && m === prevMonth(curMonth()) ? '<button type="button" class="btn" data-banner="carry">ترحيل غير المنجزة (' + un + ') إلى ' + monthOnly(curMonth()) + '</button>' : '') +
+        '<button type="button" class="btn" data-banner="later">لاحقاً</button>' +
+      '</div>' +
+      '<p class="hint">بعد الضغط تظهر قائمة المشاركة: اختر (حفظ في الملفات) ثم المجلد الذي تريده.</p>';
+  }
+  function prevMonth(m){ var p = m.split('-'), d = new Date(+p[0], +p[1] - 2, 1); return d.getFullYear() + '-' + pad(d.getMonth() + 1); }
+
+  function renderBackup(){
+    $('#bk-last').textContent = state.lastBackup ? ('آخر نسخة احتياطية: ' + fmtLong(isoOf(new Date(state.lastBackup)))) : 'لم تُحفظ نسخة احتياطية بعد.';
+  }
+
+  function renderTip(){
+    var show = !standalone && !state.tipHidden && (isIOS || !!deferredInstall);
+    $('#install-tip').hidden = !show;
+    $('#install-btn').hidden = !deferredInstall;
+    if (deferredInstall && !isIOS) $('#install-text').innerHTML = '<b>ثبّته كتطبيق</b> ليظهر على الشاشة ويعمل دون إنترنت.';
+  }
+
+  function render(){
+    var v = visible();
+    renderSync(); renderBanner(); renderPeriod(); renderSummary(v); renderLists(v); renderReport(v); renderArchive(); renderBackup(); renderTip();
+  }
+
+  /* ---------- Excel (.xlsx) writer, no libraries ---------- */
+  var Xlsx = (function(){
+    var table = null;
+    function crc32(b){
+      if (!table){ table = new Uint32Array(256); for (var n = 0; n < 256; n++){ var c = n; for (var k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; table[n] = c >>> 0; } }
+      var crc = 0xFFFFFFFF; for (var i = 0; i < b.length; i++) crc = table[(crc ^ b[i]) & 0xFF] ^ (crc >>> 8);
+      return (crc ^ 0xFFFFFFFF) >>> 0;
+    }
+    function zip(files){
+      var enc = new TextEncoder(), parts = [], central = [], offset = 0, now = new Date();
+      var dt = ((now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() >> 1)) & 0xFFFF;
+      var dd = (((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate()) & 0xFFFF;
+      files.forEach(function(f){
+        var name = enc.encode(f.name), data = enc.encode(f.text), crc = crc32(data);
+        var lh = new DataView(new ArrayBuffer(30));
+        lh.setUint32(0, 0x04034b50, true); lh.setUint16(4, 20, true); lh.setUint16(6, 0, true); lh.setUint16(8, 0, true);
+        lh.setUint16(10, dt, true); lh.setUint16(12, dd, true); lh.setUint32(14, crc, true);
+        lh.setUint32(18, data.length, true); lh.setUint32(22, data.length, true); lh.setUint16(26, name.length, true); lh.setUint16(28, 0, true);
+        parts.push(new Uint8Array(lh.buffer), name, data);
+        var ch = new DataView(new ArrayBuffer(46));
+        ch.setUint32(0, 0x02014b50, true); ch.setUint16(4, 20, true); ch.setUint16(6, 20, true); ch.setUint16(8, 0, true); ch.setUint16(10, 0, true);
+        ch.setUint16(12, dt, true); ch.setUint16(14, dd, true); ch.setUint32(16, crc, true);
+        ch.setUint32(20, data.length, true); ch.setUint32(24, data.length, true); ch.setUint16(28, name.length, true);
+        ch.setUint16(30, 0, true); ch.setUint16(32, 0, true); ch.setUint16(34, 0, true); ch.setUint16(36, 0, true); ch.setUint32(38, 0, true); ch.setUint32(42, offset, true);
+        central.push(new Uint8Array(ch.buffer), name);
+        offset += 30 + name.length + data.length;
+      });
+      var csize = 0; central.forEach(function(c){ csize += c.length; });
+      var end = new DataView(new ArrayBuffer(22));
+      end.setUint32(0, 0x06054b50, true); end.setUint16(8, files.length, true); end.setUint16(10, files.length, true);
+      end.setUint32(12, csize, true); end.setUint32(16, offset, true);
+      return new Blob(parts.concat(central, [new Uint8Array(end.buffer)]), { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    }
+    function x(s){ return String(s == null ? '' : s).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '').replace(/[&<>"]/g, function(c){ return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]; }); }
+    function col(i){ var s = ''; i++; while (i > 0){ var m = (i - 1) % 26; s = String.fromCharCode(65 + m) + s; i = Math.floor((i - 1) / 26); } return s; }
+    function sheetXml(sh){
+      var rows = sh.rows.map(function(r, ri){
+        return '<row r="' + (ri + 1) + '"' + (r.ht ? ' ht="' + r.ht + '" customHeight="1"' : '') + '>' + r.cells.map(function(c, ci){
+          var ref = col(ci) + (ri + 1), s = c.s ? ' s="' + c.s + '"' : '';
+          if (c.v == null || c.v === '') return '<c r="' + ref + '"' + s + '/>';
+          if (typeof c.v === 'number') return '<c r="' + ref + '"' + s + '><v>' + c.v + '</v></c>';
+          return '<c r="' + ref + '"' + s + ' t="inlineStr"><is><t xml:space="preserve">' + x(c.v) + '</t></is></c>';
+        }).join('') + '</row>';
+      }).join('');
+      var pane = sh.freeze ? '<pane ySplit="' + sh.freeze + '" topLeftCell="A' + (sh.freeze + 1) + '" activePane="bottomLeft" state="frozen"/><selection pane="bottomLeft" activeCell="A' + (sh.freeze + 1) + '" sqref="A' + (sh.freeze + 1) + '"/>' : '';
+      return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
+        '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">' +
+        '<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>' +
+        '<sheetViews><sheetView rightToLeft="1" workbookViewId="0"' + (sh.tab ? ' tabSelected="1"' : '') + '>' + pane + '</sheetView></sheetViews>' +
+        '<sheetFormatPr defaultRowHeight="20"/>' +
+        '<cols>' + sh.cols.map(function(w, i){ return '<col min="' + (i + 1) + '" max="' + (i + 1) + '" width="' + w + '" customWidth="1"/>'; }).join('') + '</cols>' +
+        '<sheetData>' + rows + '</sheetData>' +
+        (sh.autoFilter ? '<autoFilter ref="' + sh.autoFilter + '"/>' : '') +
+        (sh.merges && sh.merges.length ? '<mergeCells count="' + sh.merges.length + '">' + sh.merges.map(function(m){ return '<mergeCell ref="' + m + '"/>'; }).join('') + '</mergeCells>' : '') +
+        '<pageMargins left="0.5" right="0.5" top="0.6" bottom="0.6" header="0.3" footer="0.3"/>' +
+        '<pageSetup orientation="landscape" paperSize="9" fitToWidth="1" fitToHeight="0"/>' +
+        '</worksheet>';
+    }
+    /* style ids used by callers */
+    var S = { header: 1, text: 2, center: 3, title: 9, label: 10, num: 11, pct: 12, sub: 13,
+      st: { pending: 4, progress: 5, sent: 6, replied: 7, done: 8 } };
+    var STYLES = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
+      '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
+      '<fonts count="5">' +
+        '<font><sz val="12"/><color rgb="FF15202B"/><name val="Arial"/><family val="2"/></font>' +
+        '<font><b/><sz val="12"/><color rgb="FF15202B"/><name val="Arial"/><family val="2"/></font>' +
+        '<font><b/><sz val="12"/><color rgb="FFFFFFFF"/><name val="Arial"/><family val="2"/></font>' +
+        '<font><b/><sz val="16"/><color rgb="FF1D4C9E"/><name val="Arial"/><family val="2"/></font>' +
+        '<font><sz val="11"/><color rgb="FF4E5C6B"/><name val="Arial"/><family val="2"/></font>' +
+      '</fonts>' +
+      '<fills count="9">' +
+        '<fill><patternFill patternType="none"/></fill>' +
+        '<fill><patternFill patternType="gray125"/></fill>' +
+        '<fill><patternFill patternType="solid"><fgColor rgb="FF1D4C9E"/><bgColor indexed="64"/></patternFill></fill>' +
+        '<fill><patternFill patternType="solid"><fgColor rgb="FFF7E7DA"/><bgColor indexed="64"/></patternFill></fill>' +
+        '<fill><patternFill patternType="solid"><fgColor rgb="FFFBF0D9"/><bgColor indexed="64"/></patternFill></fill>' +
+        '<fill><patternFill patternType="solid"><fgColor rgb="FFECE6F7"/><bgColor indexed="64"/></patternFill></fill>' +
+        '<fill><patternFill patternType="solid"><fgColor rgb="FFDCF0F2"/><bgColor indexed="64"/></patternFill></fill>' +
+        '<fill><patternFill patternType="solid"><fgColor rgb="FFDFF1E7"/><bgColor indexed="64"/></patternFill></fill>' +
+        '<fill><patternFill patternType="solid"><fgColor rgb="FFEDF0F3"/><bgColor indexed="64"/></patternFill></fill>' +
+      '</fills>' +
+      '<borders count="2">' +
+        '<border><left/><right/><top/><bottom/><diagonal/></border>' +
+        '<border><left style="thin"><color rgb="FFC3CCD6"/></left><right style="thin"><color rgb="FFC3CCD6"/></right><top style="thin"><color rgb="FFC3CCD6"/></top><bottom style="thin"><color rgb="FFC3CCD6"/></bottom><diagonal/></border>' +
+      '</borders>' +
+      '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>' +
+      '<cellXfs count="14">' +
+        '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>' +
+        '<xf numFmtId="0" fontId="2" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1" readingOrder="2"/></xf>' +
+        '<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="right" vertical="top" wrapText="1" readingOrder="2"/></xf>' +
+        '<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="top" readingOrder="2"/></xf>' +
+        '<xf numFmtId="0" fontId="1" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="top" readingOrder="2"/></xf>' +
+        '<xf numFmtId="0" fontId="1" fillId="4" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="top" readingOrder="2"/></xf>' +
+        '<xf numFmtId="0" fontId="1" fillId="5" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="top" readingOrder="2"/></xf>' +
+        '<xf numFmtId="0" fontId="1" fillId="6" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="top" readingOrder="2"/></xf>' +
+        '<xf numFmtId="0" fontId="1" fillId="7" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="top" readingOrder="2"/></xf>' +
+        '<xf numFmtId="0" fontId="3" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="right" vertical="center" readingOrder="2"/></xf>' +
+        '<xf numFmtId="0" fontId="1" fillId="8" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right" vertical="center" readingOrder="2"/></xf>' +
+        '<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>' +
+        '<xf numFmtId="9" fontId="1" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>' +
+        '<xf numFmtId="0" fontId="4" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="right" vertical="center" readingOrder="2"/></xf>' +
+      '</cellXfs>' +
+      '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>' +
+      '</styleSheet>';
+    function build(sheets){
+      var files = [];
+      files.push({ name: '[Content_Types].xml', text: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>' +
+        sheets.map(function(s, i){ return '<Override PartName="/xl/worksheets/sheet' + (i + 1) + '.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'; }).join('') +
+        '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>' });
+      files.push({ name: '_rels/.rels', text: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>' });
+      files.push({ name: 'xl/workbook.xml', text: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><bookViews><workbookView activeTab="0"/></bookViews><sheets>' +
+        sheets.map(function(s, i){ return '<sheet name="' + x(s.name) + '" sheetId="' + (i + 1) + '" r:id="rId' + (i + 1) + '"/>'; }).join('') +
+        '</sheets>' + (sheets.some(function(s){ return s.autoFilter; }) ? '<definedNames>' + sheets.map(function(s, i){ return s.autoFilter ? '<definedName name="_xlnm._FilterDatabase" localSheetId="' + i + '" hidden="1">\'' + x(s.name) + '\'!$' + s.autoFilter.replace(':', ':$').replace(/([A-Z]+)(\d+)/g, '$1$$$2') + '</definedName>' : ''; }).join('') + '</definedNames>' : '') + '</workbook>' });
+      files.push({ name: 'xl/_rels/workbook.xml.rels', text: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+        sheets.map(function(s, i){ return '<Relationship Id="rId' + (i + 1) + '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet' + (i + 1) + '.xml"/>'; }).join('') +
+        '<Relationship Id="rId' + (sheets.length + 1) + '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>' });
+      files.push({ name: 'xl/styles.xml', text: STYLES });
+      sheets.forEach(function(s, i){ files.push({ name: 'xl/worksheets/sheet' + (i + 1) + '.xml', text: sheetXml(s) }); });
+      return zip(files);
+    }
+    return { build: build, S: S };
+  })();
+
+  /* entries -> workbook (tasks sheet + summary sheet) */
+  function workbook(entries, heading, sub){
+    var S = Xlsx.S;
+    entries = entries.slice().sort(function(a, b){ return a.t.date < b.t.date ? -1 : a.t.date > b.t.date ? 1 : a.t.createdAt - b.t.createdAt; });
+    var rows = [{ ht: 24, cells: [{ v: 'م', s: S.header }, { v: 'التاريخ', s: S.header }, { v: 'اليوم', s: S.header }, { v: 'المهمة', s: S.header }, { v: 'الحالة', s: S.header }, { v: 'ملاحظات', s: S.header }] }];
+    entries.forEach(function(e, i){
+      var t = e.t, d = parse(t.date);
+      rows.push({ cells: [
+        { v: i + 1, s: S.center },
+        { v: d.getDate() + '/' + (d.getMonth() + 1) + '/' + d.getFullYear(), s: S.center },
+        { v: DAYS[d.getDay()], s: S.center },
+        { v: t.title + (t.carriedFrom ? ' (مُرحّلة من ' + monthOnly(t.carriedFrom) + ')' : ''), s: S.text },
+        { v: STATUS[t.status].label, s: S.st[t.status] },
+        { v: t.note || '', s: S.text }
+      ] });
+    });
+    var tasksSheet = { name: 'المهام', cols: [6, 13, 12, 52, 18, 42], rows: rows, freeze: 1, autoFilter: 'A1:F' + Math.max(1, rows.length), tab: true };
+
+    var c = { total: entries.length }; SCREEN_ORDER.forEach(function(k){ c[k] = 0; });
+    entries.forEach(function(e){ c[e.t.status]++; });
+    var srows = [
+      { ht: 30, cells: [{ v: heading, s: S.title }, { v: '' }] },
+      { cells: [{ v: sub, s: S.sub }, { v: '' }] },
+      { cells: [{ v: '' }, { v: '' }] },
+      { cells: [{ v: 'إجمالي المهام', s: S.label }, { v: c.total, s: S.num }] }
+    ];
+    REPORT_ORDER.forEach(function(k){ srows.push({ cells: [{ v: STATUS[k].label, s: S.st[k] }, { v: c[k], s: S.num }] }); });
+    srows.push({ cells: [{ v: 'نسبة الإنجاز', s: S.label }, { v: c.total ? Math.round(c.done * 1000 / c.total) / 1000 : 0, s: S.pct }] });
+    if ((state.settings.author || '').trim()) srows.push({ cells: [{ v: 'المُعِد', s: S.label }, { v: state.settings.author.trim(), s: S.num }] });
+    srows.push({ cells: [{ v: 'تاريخ الحفظ', s: S.label }, { v: fmtLong(todayIso()), s: S.num }] });
+    var sumSheet = { name: 'الملخص', cols: [26, 30], rows: srows, merges: ['A1:B1', 'A2:B2'] };
+    return Xlsx.build([tasksSheet, sumSheet]);
+  }
+
+  /* ---------- settings inputs ---------- */
+  var FIELDS = { 's-title': 'title', 's-author': 'author', 's-phone': 'phone' };
+  function applySettings(){
+    Object.keys(FIELDS).forEach(function(id){ document.getElementById(id).value = state.settings[FIELDS[id]] || ''; });
+    renderIncChecks();
+  }
+  var saveTimer = null;
+  function saveSoon(){ clearTimeout(saveTimer); saveTimer = setTimeout(save, 400); }
+  Object.keys(FIELDS).forEach(function(id){
+    document.getElementById(id).addEventListener('input', function(e){ state.settings[FIELDS[id]] = e.target.value; renderReport(visible()); saveSoon(); });
+  });
+  $('#inc-checks').addEventListener('change', function(e){
+    var el = e.target; if (!el || el.type !== 'checkbox') return;
+    if (el.dataset.inc) state.settings.inc[el.dataset.inc] = el.checked;
+    else if (el.id === 'inc-notes') state.settings.incNotes = el.checked;
+    else if (el.id === 'inc-rate') state.settings.incRate = el.checked;
+    renderReport(visible()); save();
+  });
+
+  /* ---------- toast ---------- */
+  var toastTimer = null;
+  function toast(msg){
+    var t = $('#toast'); t.textContent = msg; t.classList.add('show');
+    clearTimeout(toastTimer); toastTimer = setTimeout(function(){ t.classList.remove('show'); }, 3000);
+  }
+
+  /* ---------- period controls ---------- */
+  function resetRowUI(){ state.editing = null; state.draft = null; state.picking = null; state.confirmDel = false; }
+  $('#period-seg').addEventListener('click', function(e){
+    var b = e.target.closest('button[data-period]'); if (!b) return;
+    state.period = b.dataset.period; resetRowUI(); save(); render();
+  });
+  function shift(dir){
+    var p = state.period;
+    if (p === 'day') state.anchor = addDays(state.anchor, dir);
+    else if (p === 'week') state.anchor = addDays(state.anchor, 7 * dir);
+    else { var d = parse(state.anchor); state.anchor = isoOf(new Date(d.getFullYear(), d.getMonth() + dir, 1)); }
+    resetRowUI(); render();
+  }
+  $('#prev').addEventListener('click', function(){ shift(-1); });
+  $('#next').addEventListener('click', function(){ shift(1); });
+  $('#to-today').addEventListener('click', function(){ state.anchor = todayIso(); resetRowUI(); render(); });
+  var pick = $('#pick');
+  pick.addEventListener('click', function(){ try { if (pick.showPicker) pick.showPicker(); } catch(e){} });
+  pick.addEventListener('change', function(){ if (validIso(pick.value)){ state.anchor = pick.value; resetRowUI(); render(); } });
+
+  /* ---------- add ---------- */
+  $('#new-status').addEventListener('click', function(e){
+    var b = e.target.closest('button[data-st]'); if (!b) return;
+    state.newStatus = b.dataset.st; save();
+    this.querySelectorAll('button').forEach(function(x){ x.setAttribute('aria-pressed', String(x === b)); });
+  });
+  $('#add-form').addEventListener('submit', function(e){
+    e.preventDefault();
+    if (!rangeEditable()) return;
+    var inp = $('#new-title'), title = inp.value.trim();
+    if (!title){ inp.focus(); return; }
+    var now = Date.now();
+    addTask({ title: title.slice(0, 300), note: '', date: newTaskDate(), status: state.newStatus, createdAt: now, statusAt: now, updatedAt: now });
+    inp.value = '';
+    inp.focus();
+  });
+
+  /* ---------- list interactions ---------- */
+  var lists = $('#lists');
+  lists.addEventListener('click', function(e){
+    var b = e.target.closest('[data-act]'); if (!b) return;
+    var li = b.closest('li[data-id]'); if (!li || li.dataset.ro) return;
+    var id = li.dataset.id, t = state.tasks[id]; if (!t) return;
+    var act = b.dataset.act;
+    if (act === 'pick'){
+      state.picking = state.picking === id ? null : id;
+      if (state.picking){ state.editing = null; state.draft = null; }
+      render();
+    } else if (act === 'set-status'){
+      state.picking = null;
+      if (b.dataset.st !== t.status){ updateTask(id, { status: b.dataset.st }); toast('الحالة الآن: ' + STATUS[b.dataset.st].label); }
+      else render();
+    } else if (act === 'edit'){
+      if (state.editing === id){ resetRowUI(); render(); return; }
+      state.editing = id; state.picking = null; state.confirmDel = false;
+      state.draft = { title: t.title, note: t.note || '', date: t.date, status: t.status };
+      render();
+      var f = document.getElementById('ed-title');
+      if (f && !isTouch){ f.focus(); try { f.setSelectionRange(f.value.length, f.value.length); } catch(err){} }
+    } else if (act === 'ed-status'){
+      state.draft.status = b.dataset.st; render();
+    } else if (act === 'cancel'){
+      resetRowUI(); render();
+    } else if (act === 'save'){
+      saveEdit(id, t);
+    } else if (act === 'carry'){
+      resetRowUI();
+      updateTask(id, { date: todayIso() });
+      toast('رُحّلت المهمة إلى اليوم');
+    } else if (act === 'delete'){
+      if (!state.confirmDel){ state.confirmDel = true; render(); return; }
+      resetRowUI();
+      removeTask(id);
+      toast('حُذفت المهمة');
+    }
+  });
+  function saveEdit(id, t){
+    var d = state.draft, title = (d.title || '').trim();
+    if (!title){ var f = document.getElementById('ed-title'); if (f) f.focus(); toast('اكتب اسم المهمة قبل الحفظ'); return; }
+    var date = validIso(d.date) ? d.date : t.date;
+    if (date < monthStart(curMonth())){ toast('اختر تاريخاً من ' + monthName(curMonth()) + '، فالأشهر السابقة مؤرشفة'); return; }
+    resetRowUI();
+    updateTask(id, { title: title.slice(0, 300), note: (d.note || '').trim().slice(0, 1000), date: date, status: d.status });
+  }
+  lists.addEventListener('input', function(e){
+    var k = e.target.dataset && e.target.dataset.draft;
+    if (k && state.draft){ state.draft[k] = e.target.value; state.confirmDel = false; }
+  });
+  lists.addEventListener('keydown', function(e){
+    if (!state.editing && !state.picking) return;
+    if (e.key === 'Escape'){ resetRowUI(); render(); }
+    else if (e.key === 'Enter' && e.target.id === 'ed-title'){ e.preventDefault(); var t = state.tasks[state.editing]; if (t) saveEdit(state.editing, t); }
+  });
+
+  /* ---------- files ---------- */
+  function deliverFile(name, blob){
+    function download(){
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url; a.download = name; document.body.appendChild(a); a.click();
+      setTimeout(function(){ URL.revokeObjectURL(url); a.remove(); }, 2000);
+    }
+    if (isTouch && navigator.canShare){
+      try {
+        var file = new File([blob], name, { type: blob.type });
+        if (navigator.canShare({ files: [file] })){
+          return navigator.share({ files: [file] }).then(function(){ return true; }, function(e){
+            if (e && e.name === 'AbortError') return false;
+            download(); return true;
+          });
+        }
+      } catch(e){}
+    }
+    download();
+    return Promise.resolve(true);
+  }
+  function fileStamp(){
+    var r = rangeOf(state.period, state.anchor);
+    if (state.period === 'day') return r.start;
+    if (state.period === 'month') return monthOnly(monthOf(r.start)) + '-' + r.start.slice(0, 4);
+    return r.start + '_' + r.end;
+  }
+  function saveMonthFile(m){
+    var a = state.archive[m]; if (!a) return;
+    var entries = Object.keys(a.tasks).map(function(id){ return { id: id, t: a.tasks[id] }; });
+    var blob = workbook(entries, 'سجل مهام شهر ' + monthName(m), 'من 1 ' + monthName(m) + ' إلى نهاية الشهر · ' + nTasks(entries.length));
+    deliverFile('سجل-المهام-' + monthOnly(m) + '-' + m.slice(0, 4) + '.xlsx', blob).then(function(ok){
+      if (!ok) return;
+      a.savedAt = Date.now(); save(); render();
+      toast('جُهّز ملف ' + monthName(m));
+    });
+  }
+
+  /* ---------- share & export ---------- */
+  function copyReport(){
+    var text = reportText();
+    var fb = $('#copy-fallback');
+    function fallback(){
+      fb.hidden = false; fb.value = text;
+      document.getElementById('share').scrollIntoView({ behavior: 'smooth', block: 'end' });
+      fb.focus(); fb.select();
+      toast('النص محدّد أدناه، انسخه يدوياً');
+    }
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(text).then(function(){ toast('نُسخ التقرير، الصقه في واتساب'); }, fallback);
+      } else fallback();
+    } catch(e){ fallback(); }
+  }
+  $('#copy-btn').addEventListener('click', copyReport);
+  $('#dock-copy').addEventListener('click', copyReport);
+  $('#dock-more').addEventListener('click', function(){ document.getElementById('share').scrollIntoView({ behavior: 'smooth', block: 'start' }); });
+
+  if (navigator.share){
+    $('#share-btn').hidden = false;
+    $('#share-btn').addEventListener('click', function(){ navigator.share({ text: reportText() }).catch(function(){}); });
+  } else {
+    $('#share-row').style.gridTemplateColumns = '1fr';
+  }
+  $('#dl-xlsx').addEventListener('click', function(){
+    var v = visible();
+    deliverFile('سجل-المهام-' + fileStamp() + '.xlsx', workbook(v.all, ((state.settings.title || '').trim() || 'تقرير المهام'), periodLine()));
+  });
+  $('#dl-txt').addEventListener('click', function(){
+    var blob = new Blob([reportText().replace(/\*([^*\n]+)\*/g, '$1')], { type: 'text/plain' });
+    deliverFile('تقرير-المهام-' + fileStamp() + '.txt', blob);
+  });
+
+  /* ---------- month banner & archive panel ---------- */
+  $('#month-banner').addEventListener('click', function(e){
+    var b = e.target.closest('[data-banner]'); if (!b) return;
+    var m = this.dataset.m, a = state.archive[m]; if (!a) return;
+    if (b.dataset.banner === 'save') saveMonthFile(m);
+    else if (b.dataset.banner === 'later'){ a.dismissed = true; save(); render(); toast('تجده في (أرشيف الأشهر) متى أردت حفظه'); }
+    else if (b.dataset.banner === 'carry'){
+      var ids = unfinished(m), now = Date.now(), t0 = todayIso();
+      ids.forEach(function(id, i){
+        var t = a.tasks[id];
+        state.tasks[uid()] = normTask({ title: t.title, note: t.note, date: t0, status: t.status, createdAt: now + i, statusAt: t.statusAt, updatedAt: now, carriedFrom: m });
+      });
+      a.carried = true; save(); render();
+      toast('رُحّلت ' + nTasks(ids.length) + ' إلى اليوم');
+    }
+  });
+  $('#arch-list').addEventListener('click', function(e){
+    var b = e.target.closest('[data-arch]'); if (!b) return;
+    var m = b.closest('[data-m]').dataset.m;
+    if (b.dataset.arch === 'save') saveMonthFile(m);
+    else { state.period = 'month'; state.anchor = monthStart(m); resetRowUI(); render(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+  });
+
+  /* ---------- backup ---------- */
+  $('#bk-save').addEventListener('click', function(){
+    var data = JSON.stringify({ app: 'task-log', v: 2, exportedAt: new Date().toISOString(), tasks: state.tasks, archive: state.archive, settings: state.settings });
+    deliverFile('نسخة-سجل-المهام-' + todayIso() + '.json', new Blob([data], { type: 'application/json' })).then(function(ok){
+      if (ok){ state.lastBackup = Date.now(); save(); renderBackup(); toast('جُهّزت النسخة الاحتياطية'); }
+    });
+  });
+  $('#bk-load').addEventListener('click', function(){ $('#bk-file').click(); });
+  $('#bk-file').addEventListener('change', function(e){
+    var f = e.target.files && e.target.files[0]; e.target.value = '';
+    if (!f) return;
+    var reader = new FileReader();
+    reader.onload = function(){
+      var p;
+      try { p = JSON.parse(String(reader.result)); } catch(err){ toast('هذا الملف ليس نسخة احتياطية صالحة'); return; }
+      if (!p || p.app !== 'task-log' || typeof p.tasks !== 'object'){ toast('هذا الملف ليس نسخة احتياطية من سجل المهام'); return; }
+      var added = 0, updated = 0;
+      function merge(dst, src){
+        Object.keys(src || {}).forEach(function(id){
+          if (!/^[A-Za-z0-9_-]{1,64}$/.test(id)) return;
+          var inc = normTask(src[id]), cur = dst[id];
+          if (!inc.title) return;
+          if (!cur){ dst[id] = inc; added++; }
+          else if (inc.updatedAt > cur.updatedAt){ dst[id] = inc; updated++; }
+        });
+      }
+      var hadNothing = !Object.keys(state.tasks).length && !Object.keys(state.archive).length;
+      merge(state.tasks, p.tasks);
+      var arch = normArchive(p.archive);
+      Object.keys(arch).forEach(function(m){
+        var a = state.archive[m] || (state.archive[m] = { tasks: {}, archivedAt: arch[m].archivedAt, savedAt: arch[m].savedAt, carried: arch[m].carried, dismissed: true });
+        merge(a.tasks, arch[m].tasks);
+      });
+      if (p.settings && hadNothing) state.settings = normSettings(p.settings);
+      archiveOld(); save(); applySettings(); render();
+      toast(added || updated ? ('أُضيفت ' + added + ' وحُدّثت ' + updated + ' من المهام') : 'كل المهام في النسخة موجودة مسبقاً');
+    };
+    reader.onerror = function(){ toast('تعذّرت قراءة الملف'); };
+    reader.readAsText(f);
+  });
+
+  /* ---------- install & offline ---------- */
+  var deferredInstall = null;
+  window.addEventListener('beforeinstallprompt', function(e){ e.preventDefault(); deferredInstall = e; renderTip(); });
+  $('#install-btn').addEventListener('click', function(){
+    if (!deferredInstall) return;
+    deferredInstall.prompt();
+    deferredInstall.userChoice.finally(function(){ deferredInstall = null; renderTip(); });
+  });
+  $('#tip-close').addEventListener('click', function(){ state.tipHidden = true; save(); renderTip(); });
+
+  window.addEventListener('online', function(){ state.online = true; renderSync(); });
+  window.addEventListener('offline', function(){ state.online = false; renderSync(); });
+
+  if ('serviceWorker' in navigator && location.protocol !== 'file:'){
+    var hadController = !!navigator.serviceWorker.controller;
+    navigator.serviceWorker.register('./sw.js').catch(function(){});
+    navigator.serviceWorker.ready.then(function(){ state.offlineReady = true; renderSync(); });
+    navigator.serviceWorker.addEventListener('controllerchange', function(){
+      if (hadController) toast('وصل تحديث للبرنامج، يظهر عند فتحه مرة أخرى');
+      hadController = true;
+    });
+  }
+  if (navigator.storage && navigator.storage.persist){ navigator.storage.persist().catch(function(){}); }
+
+  /* new day / new month while the app stays open */
+  var lastToday = todayIso();
+  function checkDay(){
+    var t = todayIso();
+    if (t !== lastToday){
+      if (state.anchor === lastToday || monthOf(state.anchor) < monthOf(t)) state.anchor = t;
+      lastToday = t;
+      archiveOld(); render();
+    }
+  }
+  document.addEventListener('visibilitychange', function(){ if (!document.hidden) checkDay(); });
+  setInterval(checkDay, 60000);
+  window.__taskLogCheckDay = checkDay;
+
+  /* ---------- start ---------- */
+  load();
+  archiveOld();
+  applySettings();
+  render();
+})();
+</script>
+</body>
+</html>
