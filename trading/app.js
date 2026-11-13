@@ -4,6 +4,8 @@
   'use strict';
   var C = window.TradingCore, Charts = window.TradingCharts;
   var KEY = 'trading-assistant-v1';
+  // Set by a sandboxed preview build that may not reach other hosts or save files; never set on the real site.
+  var PREVIEW = !!window.TRADING_PREVIEW;
 
   /* ---------- small helpers ---------- */
 
@@ -336,6 +338,7 @@
 
   // Rejects with { kind: 'symbol' } when a source answered but does not list the symbol, otherwise { kind: 'network' }.
   function fetchCandles(sym, itv) {
+    if (PREVIEW) return Promise.reject({ kind: 'network' });
     var order = PROVIDERS.slice(), unknown = false;
     for (var j = 1; j < order.length; j++) if (order[j].id === state.ui.provider) order.unshift(order.splice(j, 1)[0]);
     function attempt(i) {
@@ -417,6 +420,7 @@
         return market.loading ? ['wait', 'آخر أسعار محفوظة (' + dayTime(market.at) + ') · جارٍ التحديث…']
           : ['warn', 'تعذّر الاتصال بمصدر الأسعار. المعروض آخر أسعار محفوظة من ' + dayTime(market.at) + '.'];
       case 'fallback':
+        if (PREVIEW) return ['warn', 'هذه المعاينة لا تتصل بمصادر الأسعار، فالمعروض بيانات تجريبية مولّدة وليست أسعاراً حقيقية. الأسعار المباشرة تعمل في النسخة المنشورة على موقعك، واستيراد CSV يعمل هنا.'];
         return market.loading ? ['wait', 'جارٍ جلب الأسعار…']
           : ['warn', 'تعذّر جلب الأسعار، والمعروض بيانات تجريبية مولّدة وليست أسعاراً حقيقية. اضغط «تحديث» للمحاولة من جديد أو استورد ملف CSV.'];
       case 'demo':
@@ -1498,11 +1502,13 @@
     });
 
     on('bk-save', 'click', function () {
+      if (PREVIEW) return showBackupText('حفظ الملفات غير متاح في المعاينة. حدّد النص التالي وانسخه ثم احفظه في مكان آمن.');
       var ok = download('trading-backup-' + nowLocal().slice(0, 10) + '.json', backupText(), 'application/json');
       $('bk-msg').textContent = ok ? 'بدأ حفظ الملف. إن لم يظهر في تنزيلاتك استخدم «نسخ النسخة كنص».' : 'تعذّر حفظ الملف هنا. استخدم «نسخ النسخة كنص».';
     });
     on('bk-csv', 'click', function () {
       if (!state.trades.length) { $('bk-msg').textContent = 'لا صفقات لتصديرها بعد.'; return; }
+      if (PREVIEW) { $('bk-msg').textContent = 'تصدير الملفات غير متاح في المعاينة، ويعمل في النسخة المنشورة على موقعك.'; return; }
       download('trades-' + nowLocal().slice(0, 10) + '.csv', tradesCsv(), 'text/csv');
       $('bk-msg').textContent = 'بدأ حفظ ملف الصفقات. يفتح في Excel مباشرة.';
     });
@@ -1556,7 +1562,7 @@
     showTab(state.ui.tab);
     loadMarket();
 
-    if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
+    if (!PREVIEW && 'serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
       try { navigator.serviceWorker.register('./sw.js').catch(function () {}); } catch (e) { /* not available here */ }
     }
   }
