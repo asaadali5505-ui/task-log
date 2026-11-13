@@ -167,7 +167,11 @@
         if (src) Object.keys(st.bt.p[name]).forEach(function (k) { if (posNum(src[k])) st.bt.p[name][k] = Math.round(src[k]); });
       });
     }
-    function rowsOk(x) { return x && Array.isArray(x.rows) && x.rows.length && Array.isArray(x.rows[0]); }
+    function rowsOk(x) {
+      return x && Array.isArray(x.rows) && x.rows.length > 0 && x.rows.every(function (r) {
+        return Array.isArray(r) && r.length >= 5 && r.slice(0, 5).every(function (v) { return typeof v === 'number' && isFinite(v); });
+      });
+    }
     if (rowsOk(data.cache) && typeof data.cache.key === 'string') st.cache = data.cache;
     if (rowsOk(data.csv)) st.csv = { name: String(data.csv.name || 'CSV').slice(0, 20), rows: data.csv.rows, closeOnly: !!data.csv.closeOnly };
     return st;

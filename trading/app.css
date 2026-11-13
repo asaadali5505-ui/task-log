@@ -309,7 +309,7 @@ select.input{appearance:auto}
 .tip-n{color:var(--ink-2)}
 
 /* dialogs */
-.dlg{border:0;border-radius:16px;padding:0;background:var(--surface);color:var(--ink);width:min(580px, calc(100vw - 24px));max-height:calc(100dvh - 24px);box-shadow:var(--shadow);overflow:hidden}
+.dlg{border:0;border-radius:16px;padding:0;background:var(--surface);color:var(--ink);width:min(580px, calc(100vw - 24px));max-height:calc(100vh - 24px);max-height:calc(100dvh - 24px);box-shadow:var(--shadow);overflow:hidden}
 .dlg.narrow{width:min(400px, calc(100vw - 24px))}
 .dlg::backdrop{background:var(--scrim)}
 .dlg[open]{display:flex}
