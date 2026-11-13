@@ -1,6 +1,8 @@
 /* سجل المهام — يحفظ ملفات البرنامج على الجهاز ليعمل دون إنترنت.
    عند تعديل أي ملف: غيّر رقم الإصدار أدناه حتى تصل النسخة الجديدة للأجهزة. */
-const CACHE = 'task-log-v2';
+const CACHE = 'task-log-v3';
+// مجلد «مساعد التداول» تطبيق مستقل له عامل خدمة خاص به، فلا يتدخل هذا الملف في طلباته ولا في ملفاته المحفوظة.
+const TRADING = new URL('./trading', self.location).pathname;
 const ASSETS = [
   './',
   './index.html',
@@ -20,7 +22,7 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys()
-      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+      .then((keys) => Promise.all(keys.filter((k) => k.startsWith('task-log-') && k !== CACHE).map((k) => caches.delete(k))))
       .then(() => self.clients.claim())
   );
 });
@@ -30,6 +32,7 @@ self.addEventListener('fetch', (event) => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
+  if (url.pathname === TRADING || url.pathname.startsWith(TRADING + '/')) return;
 
   if (req.mode === 'navigate') {
     event.respondWith(
