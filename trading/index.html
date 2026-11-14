@@ -1,0 +1,570 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>مساعد التداول</title>
+<meta name="description" content="تحليل فني، حاسبة حجم الصفقة، سجل صفقات، إحصاءات أداء، واختبار استراتيجيات. يحفظ بياناتك على جهازك ويعمل دون إنترنت.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="مساعد التداول">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#f2f4f7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0c1015" media="(prefers-color-scheme: dark)">
+<meta name="format-detection" content="telephone=no">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="brand">
+      <h1>مساعد التداول</h1>
+      <p class="acct" id="acct"></p>
+    </div>
+    <button type="button" class="icon-btn" id="open-settings" aria-label="الخطة والإعدادات">
+      <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M19 7h1M4 17h1M11 17h9"/><circle cx="16" cy="7" r="2.5"/><circle cx="8" cy="17" r="2.5"/></svg>
+    </button>
+  </header>
+
+  <div class="banner danger" id="guard" role="alert" hidden></div>
+  <div class="banner warn" id="storage-warn" hidden>تعذّر الحفظ على هذا الجهاز (وضع التصفح الخاص أو امتلاء التخزين). ما تدخله الآن سيضيع عند إغلاق الصفحة.</div>
+
+  <section class="banner welcome" id="welcome" hidden aria-labelledby="welcome-h">
+    <div>
+      <h2 id="welcome-h">ابدأ بخطتك</h2>
+      <p>حدّد رصيد حسابك، ونسبة المخاطرة لكل صفقة، وحد الخسارة اليومي. التطبيق يبني حساباته وتنبيهاته على هذه القواعد.</p>
+    </div>
+    <div class="btn-row">
+      <button type="button" class="btn primary sm" id="welcome-go">ضبط الخطة</button>
+      <button type="button" class="btn sm" id="welcome-skip">لاحقاً</button>
+    </div>
+  </section>
+
+  <nav class="tabs" id="tabs" aria-label="أقسام التطبيق">
+    <button type="button" data-tab="market">
+      <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4v3M7 15v5M17 3v5M17 14v6"/><rect x="5" y="7" width="4" height="8" rx="1"/><rect x="15" y="8" width="4" height="6" rx="1"/></svg>
+      <span>السوق</span>
+    </button>
+    <button type="button" data-tab="calc">
+      <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8.5 7.5h7M8.5 12h.01M12 12h.01M15.5 12h.01M8.5 16h.01M12 16h.01M15.5 16h.01"/></svg>
+      <span>الحاسبة</span>
+    </button>
+    <button type="button" data-tab="journal">
+      <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01"/></svg>
+      <span>الصفقات</span>
+    </button>
+    <button type="button" data-tab="perf">
+      <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h16"/><path d="M5 15l4-4 3 3 7-8"/><path d="M15 6h4v4"/></svg>
+      <span>الأداء</span>
+    </button>
+    <button type="button" data-tab="test">
+      <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.7-6"/><path d="M4 4v4.5h4.5"/><path d="M12 8v4.5l3 1.8"/></svg>
+      <span>الاختبار</span>
+    </button>
+  </nav>
+
+  <main>
+    <!-- السوق -->
+    <section class="view" id="view-market" aria-label="السوق والتحليل الفني">
+      <div class="toolbar">
+        <div class="field">
+          <label for="m-symbol">الأصل</label>
+          <select id="m-symbol" class="input"></select>
+        </div>
+        <div class="field" id="m-custom-wrap" hidden>
+          <label for="m-custom">رمز الزوج كما في المنصة</label>
+          <div class="join">
+            <input id="m-custom" class="input" dir="ltr" placeholder="DOGEUSDT" maxlength="20" autocapitalize="characters" autocomplete="off" spellcheck="false">
+            <button type="button" class="btn" id="m-custom-go">عرض</button>
+          </div>
+        </div>
+        <div class="field grow">
+          <span class="lbl" id="m-int-lbl">الإطار الزمني</span>
+          <div class="seg" id="m-interval" role="group" aria-labelledby="m-int-lbl"></div>
+        </div>
+        <div class="btn-row">
+          <button type="button" class="btn" id="m-refresh">تحديث</button>
+          <button type="button" class="btn" id="m-import">استيراد CSV</button>
+        </div>
+      </div>
+      <p class="status" id="m-status" data-state="wait" aria-live="polite"><i></i><span id="m-status-text"></span></p>
+
+      <div class="cols">
+        <div class="stack">
+          <section class="card" aria-labelledby="m-title">
+            <div class="quote">
+              <h2 id="m-title">—</h2>
+              <span class="px" id="m-price"></span>
+              <span class="chg" id="m-chg"></span>
+            </div>
+            <ul class="legend" aria-label="مفتاح الرسم">
+              <li><span class="k-candle up"></span>شمعة صاعدة</li>
+              <li><span class="k-candle down"></span>شمعة هابطة</li>
+              <li><span class="k-line s1"></span>متوسط 20</li>
+              <li><span class="k-line sctx"></span>متوسط 50</li>
+            </ul>
+            <div id="m-chart" dir="ltr"></div>
+            <div class="chart-ctl" dir="ltr">
+              <button type="button" class="icon-btn sm" id="m-older" aria-label="شموع أقدم"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button>
+              <button type="button" class="icon-btn sm" id="m-newer" aria-label="شموع أحدث"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
+              <button type="button" class="btn sm" id="m-latest" hidden>الأحدث</button>
+              <span class="spacer"></span>
+              <button type="button" class="icon-btn sm" id="m-zoom-out" aria-label="تصغير: شموع أكثر"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12h12"/></svg></button>
+              <button type="button" class="icon-btn sm" id="m-zoom-in" aria-label="تكبير: شموع أقل"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12h12M12 6v12"/></svg></button>
+            </div>
+            <h3 class="sub-h">مؤشر القوة النسبية RSI (14)</h3>
+            <div id="m-rsi" dir="ltr"></div>
+            <details class="more">
+              <summary>جدول آخر الشموع</summary>
+              <div class="scroll-x"><table class="tbl" id="m-table"></table></div>
+            </details>
+          </section>
+        </div>
+        <div class="stack">
+          <section class="card" aria-labelledby="read-h">
+            <h2 id="read-h">القراءة الفنية</h2>
+            <div class="flow" id="m-read"></div>
+          </section>
+          <section class="card" aria-labelledby="plan-h">
+            <h2 id="plan-h">مستويات حسب التقلب</h2>
+            <div class="flow" id="m-plan"></div>
+          </section>
+        </div>
+      </div>
+    </section>
+
+    <!-- الحاسبة -->
+    <section class="view" id="view-calc" aria-label="حاسبة حجم الصفقة" hidden>
+      <div class="cols even">
+        <section class="card" aria-labelledby="calc-h">
+          <h2 id="calc-h">حاسبة حجم الصفقة</h2>
+          <p class="hint">تحسب الكمية التي تجعل خسارتك عند وقف الخسارة تساوي نسبة المخاطرة التي تحددها.</p>
+          <form id="calc-form" class="form" autocomplete="off" novalidate>
+            <div class="grid2">
+              <div class="field">
+                <label for="c-balance">رصيد الحساب</label>
+                <input id="c-balance" class="input num" dir="ltr" inputmode="decimal">
+              </div>
+              <div class="field">
+                <label for="c-risk">المخاطرة لكل صفقة %</label>
+                <input id="c-risk" class="input num" dir="ltr" inputmode="decimal">
+                <div class="chips" id="c-risk-chips" role="group" aria-label="نسب شائعة"></div>
+              </div>
+            </div>
+            <div class="grid3">
+              <div class="field">
+                <label for="c-entry">سعر الدخول</label>
+                <input id="c-entry" class="input num" dir="ltr" inputmode="decimal">
+              </div>
+              <div class="field">
+                <label for="c-stop">وقف الخسارة</label>
+                <input id="c-stop" class="input num" dir="ltr" inputmode="decimal">
+              </div>
+              <div class="field">
+                <label for="c-target">الهدف <span class="opt">(اختياري)</span></label>
+                <input id="c-target" class="input num" dir="ltr" inputmode="decimal">
+              </div>
+            </div>
+            <div class="grid2">
+              <div class="field">
+                <label for="c-symbol">الرمز <span class="opt">(اختياري)</span></label>
+                <input id="c-symbol" class="input" dir="ltr" maxlength="20" autocapitalize="characters" spellcheck="false">
+              </div>
+              <div class="field">
+                <label for="c-fee">العمولة % لكل تنفيذ</label>
+                <input id="c-fee" class="input num" dir="ltr" inputmode="decimal">
+              </div>
+            </div>
+            <button type="button" class="link-btn" id="c-reset">مسح الخانات</button>
+          </form>
+        </section>
+        <div class="stack">
+          <section class="card" aria-labelledby="res-h">
+            <h2 id="res-h">النتيجة</h2>
+            <div class="flow" id="c-result" aria-live="polite"></div>
+          </section>
+          <section class="card" aria-labelledby="chk-h">
+            <h2 id="chk-h">قبل الدخول</h2>
+            <ul class="checklist" id="c-checklist"></ul>
+            <p class="hint" id="c-check-note"></p>
+            <button type="button" class="btn primary block" id="c-log">سجّل الصفقة</button>
+          </section>
+        </div>
+      </div>
+    </section>
+
+    <!-- الصفقات -->
+    <section class="view" id="view-journal" aria-label="سجل الصفقات" hidden>
+      <div class="tiles" id="j-day"></div>
+      <div class="row-head">
+        <h2>صفقات مفتوحة <span class="count" id="j-open-count"></span></h2>
+        <button type="button" class="btn primary" id="j-add">صفقة جديدة</button>
+      </div>
+      <div class="trade-list" id="j-open"></div>
+      <div class="row-head">
+        <h2>صفقات مغلقة <span class="count" id="j-closed-count"></span></h2>
+        <div class="seg sm" id="j-filter" role="group" aria-label="تصفية الصفقات المغلقة"></div>
+      </div>
+      <div class="trade-list" id="j-closed"></div>
+      <button type="button" class="btn block" id="j-more" hidden>عرض المزيد</button>
+    </section>
+
+    <!-- الأداء -->
+    <section class="view" id="view-perf" aria-label="إحصاءات الأداء" hidden>
+      <div class="toolbar">
+        <div class="field">
+          <span class="lbl" id="p-range-lbl">الفترة</span>
+          <div class="seg" id="p-range" role="group" aria-labelledby="p-range-lbl"></div>
+        </div>
+      </div>
+      <div class="banner warn" id="p-demo" hidden>
+        <p>هذه أرقام مثال لتجربة القسم، وليست صفقاتك.</p>
+        <button type="button" class="btn sm" id="p-demo-off">إخفاء المثال</button>
+      </div>
+      <div class="empty" id="p-empty" hidden>
+        <p id="p-empty-text"></p>
+        <button type="button" class="btn" id="p-demo-on">عرض مثال ببيانات تجريبية</button>
+      </div>
+      <div class="stack" id="p-body">
+        <div class="tiles" id="p-tiles"></div>
+        <section class="card" aria-labelledby="curve-h">
+          <h2 id="curve-h">منحنى الرصيد</h2>
+          <p class="hint" id="p-curve-cap"></p>
+          <div id="p-curve" dir="ltr"></div>
+        </section>
+        <section class="card" aria-labelledby="ins-h">
+          <h2 id="ins-h">ملاحظات على أدائك</h2>
+          <ul class="insights" id="p-insights"></ul>
+        </section>
+        <div class="cols even">
+          <section class="card" aria-labelledby="bs-h"><h2 id="bs-h">حسب الاستراتيجية</h2><div id="p-setup"></div></section>
+          <section class="card" aria-labelledby="by-h"><h2 id="by-h">حسب الرمز</h2><div id="p-symbol"></div></section>
+          <section class="card" aria-labelledby="bw-h"><h2 id="bw-h">حسب يوم الإغلاق</h2><div id="p-weekday"></div></section>
+          <section class="card" aria-labelledby="bt-h"><h2 id="bt-h">حسب طريقة التنفيذ</h2><div id="p-tag"></div></section>
+        </div>
+      </div>
+    </section>
+
+    <!-- الاختبار -->
+    <section class="view" id="view-test" aria-label="اختبار الاستراتيجيات ومحاكاة المخاطرة" hidden>
+      <div class="stack">
+        <section class="card" aria-labelledby="t-h">
+          <h2 id="t-h">اختبار استراتيجية على الأسعار السابقة</h2>
+          <p class="hint" id="t-data"></p>
+          <form id="t-form" class="form" autocomplete="off" novalidate>
+            <div class="field">
+              <label for="t-strat">الاستراتيجية</label>
+              <select id="t-strat" class="input"></select>
+            </div>
+            <p class="hint" id="t-desc"></p>
+            <div class="grid3" id="t-params"></div>
+            <div class="grid3">
+              <div class="field">
+                <label for="t-fee">العمولة % لكل تنفيذ</label>
+                <input id="t-fee" class="input num" dir="ltr" inputmode="decimal">
+              </div>
+              <div class="field">
+                <label for="t-stop">وقف خسارة بمضاعف ATR <span class="opt">(0 = بدون)</span></label>
+                <input id="t-stop" class="input num" dir="ltr" inputmode="decimal">
+              </div>
+              <label class="check boxed"><input type="checkbox" id="t-short"><span>السماح بالبيع على المكشوف</span></label>
+            </div>
+          </form>
+          <div class="flow" id="t-out" aria-live="polite"></div>
+        </section>
+
+        <section class="card" aria-labelledby="mc-h">
+          <h2 id="mc-h">محاكاة المخاطرة</h2>
+          <p class="hint">تكرّر سلسلة صفقاتك ألف مرة بترتيب عشوائي لترى مدى النتائج الممكنة لنفس نسبة النجاح، وكيف تغيّرها نسبة المخاطرة.</p>
+          <form id="mc-form" class="form" autocomplete="off" novalidate>
+            <div class="grid4">
+              <div class="field">
+                <label for="mc-win">نسبة النجاح %</label>
+                <input id="mc-win" class="input num" dir="ltr" inputmode="decimal">
+              </div>
+              <div class="field">
+                <label for="mc-rr">متوسط الربح ÷ متوسط الخسارة</label>
+                <input id="mc-rr" class="input num" dir="ltr" inputmode="decimal">
+              </div>
+              <div class="field">
+                <label for="mc-risk">المخاطرة لكل صفقة %</label>
+                <input id="mc-risk" class="input num" dir="ltr" inputmode="decimal">
+              </div>
+              <div class="field">
+                <label for="mc-trades">عدد الصفقات</label>
+                <input id="mc-trades" class="input num" dir="ltr" inputmode="numeric">
+              </div>
+            </div>
+            <button type="button" class="link-btn" id="mc-fill">املأ نسبة النجاح والمتوسط من سجل صفقاتي</button>
+          </form>
+          <div class="flow" id="mc-out" aria-live="polite"></div>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <p class="disclaimer">أداة مساعدة للتحليل والانضباط، وليست توصية استثمارية. القراءات الفنية ونتائج الاختبار وصف لما حدث ولا تضمن ما سيحدث. التداول قد يخسرك رأس مالك.</p>
+</div>
+
+<!-- نموذج الصفقة -->
+<dialog class="dlg" id="dlg-trade" aria-labelledby="tr-h">
+  <form id="tr-form" novalidate autocomplete="off">
+    <header>
+      <h2 id="tr-h">صفقة جديدة</h2>
+      <button type="button" class="icon-btn ghost" data-close aria-label="إغلاق"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </header>
+    <div class="dlg-body form">
+      <div class="grid2">
+        <div class="field">
+          <label for="tr-symbol">الرمز</label>
+          <input id="tr-symbol" class="input" dir="ltr" maxlength="20" autocapitalize="characters" spellcheck="false">
+        </div>
+        <div class="field">
+          <span class="lbl" id="tr-side-lbl">الاتجاه</span>
+          <div class="seg" id="tr-side" role="group" aria-labelledby="tr-side-lbl">
+            <button type="button" data-side="long">شراء</button>
+            <button type="button" data-side="short">بيع</button>
+          </div>
+        </div>
+      </div>
+      <div class="grid2">
+        <div class="field">
+          <label for="tr-entry">سعر الدخول</label>
+          <input id="tr-entry" class="input num" dir="ltr" inputmode="decimal">
+        </div>
+        <div class="field">
+          <label for="tr-qty">الكمية</label>
+          <input id="tr-qty" class="input num" dir="ltr" inputmode="decimal">
+        </div>
+      </div>
+      <div class="grid2">
+        <div class="field">
+          <label for="tr-stop">وقف الخسارة <span class="opt">(اختياري)</span></label>
+          <input id="tr-stop" class="input num" dir="ltr" inputmode="decimal">
+        </div>
+        <div class="field">
+          <label for="tr-target">الهدف <span class="opt">(اختياري)</span></label>
+          <input id="tr-target" class="input num" dir="ltr" inputmode="decimal">
+        </div>
+      </div>
+      <div class="grid2 loose">
+        <div class="field">
+          <label for="tr-opened">وقت الدخول</label>
+          <input id="tr-opened" class="input" type="datetime-local">
+        </div>
+        <div class="field">
+          <label for="tr-setup">الاستراتيجية <span class="opt">(اختياري)</span></label>
+          <input id="tr-setup" class="input" list="tr-setups" maxlength="40" placeholder="مثل: اختراق">
+          <datalist id="tr-setups"></datalist>
+        </div>
+      </div>
+      <div class="field">
+        <label for="tr-notes">سبب الدخول وملاحظاتك <span class="opt">(اختياري)</span></label>
+        <textarea id="tr-notes" class="input" rows="2" maxlength="600"></textarea>
+      </div>
+      <label class="check"><input type="checkbox" id="tr-closed"><span>الصفقة أُغلقت، أدخل نتيجة الخروج</span></label>
+      <div class="form" id="tr-close-fields" hidden>
+        <div class="grid2 loose">
+          <div class="field">
+            <label for="tr-exit">سعر الخروج</label>
+            <input id="tr-exit" class="input num" dir="ltr" inputmode="decimal">
+          </div>
+          <div class="field">
+            <label for="tr-closed-at">وقت الخروج</label>
+            <input id="tr-closed-at" class="input" type="datetime-local">
+          </div>
+        </div>
+        <div class="grid2">
+          <div class="field">
+            <label for="tr-fees">العمولات بعملة الحساب <span class="opt">(تُحسب إن تُركت)</span></label>
+            <input id="tr-fees" class="input num" dir="ltr" inputmode="decimal">
+          </div>
+          <div class="field">
+            <label for="tr-tag">طريقة التنفيذ</label>
+            <select id="tr-tag" class="input"></select>
+          </div>
+        </div>
+        <div class="field">
+          <label for="tr-lesson">الدرس المستفاد <span class="opt">(اختياري)</span></label>
+          <textarea id="tr-lesson" class="input" rows="2" maxlength="600"></textarea>
+        </div>
+      </div>
+      <p class="form-error" id="tr-error" role="alert" hidden></p>
+    </div>
+    <footer>
+      <button type="button" class="btn" data-close>إلغاء</button>
+      <button type="submit" class="btn primary">حفظ</button>
+    </footer>
+  </form>
+</dialog>
+
+<!-- إغلاق صفقة -->
+<dialog class="dlg" id="dlg-close" aria-labelledby="cl-h">
+  <form id="cl-form" novalidate autocomplete="off">
+    <header>
+      <h2 id="cl-h">إغلاق الصفقة</h2>
+      <button type="button" class="icon-btn ghost" data-close aria-label="إغلاق"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </header>
+    <div class="dlg-body form">
+      <p class="hint" id="cl-summary"></p>
+      <div class="grid2 loose">
+        <div class="field">
+          <label for="cl-exit">سعر الخروج</label>
+          <input id="cl-exit" class="input num" dir="ltr" inputmode="decimal">
+        </div>
+        <div class="field">
+          <label for="cl-at">وقت الخروج</label>
+          <input id="cl-at" class="input" type="datetime-local">
+        </div>
+      </div>
+      <div class="field">
+        <label for="cl-fees">العمولات بعملة الحساب <span class="opt">(تُحسب إن تُركت)</span></label>
+        <input id="cl-fees" class="input num" dir="ltr" inputmode="decimal">
+      </div>
+      <div class="field">
+        <span class="lbl" id="cl-tag-lbl">كيف كان تنفيذك؟</span>
+        <div class="chips" id="cl-tag" role="group" aria-labelledby="cl-tag-lbl"></div>
+      </div>
+      <div class="field">
+        <label for="cl-lesson">الدرس المستفاد <span class="opt">(اختياري)</span></label>
+        <textarea id="cl-lesson" class="input" rows="2" maxlength="600"></textarea>
+      </div>
+      <p class="preview" id="cl-preview" aria-live="polite"></p>
+      <p class="form-error" id="cl-error" role="alert" hidden></p>
+    </div>
+    <footer>
+      <button type="button" class="btn" data-close>إلغاء</button>
+      <button type="submit" class="btn primary">إغلاق الصفقة</button>
+    </footer>
+  </form>
+</dialog>
+
+<!-- الخطة والإعدادات -->
+<dialog class="dlg" id="dlg-settings" aria-labelledby="st-h">
+  <form id="st-form" novalidate autocomplete="off">
+    <header>
+      <h2 id="st-h">الخطة والإعدادات</h2>
+      <button type="button" class="icon-btn ghost" data-close aria-label="إغلاق"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </header>
+    <div class="dlg-body form">
+      <h3>الحساب</h3>
+      <div class="grid2">
+        <div class="field">
+          <label for="st-balance">الرصيد الابتدائي</label>
+          <input id="st-balance" class="input num" dir="ltr" inputmode="decimal">
+        </div>
+        <div class="field">
+          <label for="st-currency">رمز العملة</label>
+          <input id="st-currency" class="input" maxlength="6" placeholder="$">
+        </div>
+      </div>
+      <p class="hint" id="st-balance-note"></p>
+
+      <h3>قواعد الخطة</h3>
+      <div class="grid2">
+        <div class="field">
+          <label for="st-risk">المخاطرة لكل صفقة %</label>
+          <input id="st-risk" class="input num" dir="ltr" inputmode="decimal">
+        </div>
+        <div class="field">
+          <label for="st-daily">حد الخسارة اليومي %</label>
+          <input id="st-daily" class="input num" dir="ltr" inputmode="decimal">
+        </div>
+      </div>
+      <div class="grid2">
+        <div class="field">
+          <label for="st-max">أقصى عدد صفقات في اليوم</label>
+          <input id="st-max" class="input num" dir="ltr" inputmode="numeric">
+        </div>
+        <div class="field">
+          <label for="st-fee">العمولة % لكل تنفيذ</label>
+          <input id="st-fee" class="input num" dir="ltr" inputmode="decimal">
+        </div>
+      </div>
+      <p class="hint">عند بلوغ حد الخسارة اليومي أو عدد الصفقات يظهر تنبيه أعلى التطبيق. اكتب 0 لإيقاف أي حد.</p>
+
+      <h3>قائمة التحقق قبل الصفقة</h3>
+      <ul class="edit-list" id="st-checklist"></ul>
+      <div class="join">
+        <input id="st-check-new" class="input" maxlength="80" placeholder="بند جديد" aria-label="بند جديد في قائمة التحقق">
+        <button type="button" class="btn" id="st-check-add">إضافة</button>
+      </div>
+
+      <h3>النسخ الاحتياطي</h3>
+      <p class="hint">بياناتك محفوظة داخل هذا الجهاز فقط. احفظ نسخة دورياً، واستخدمها لنقل السجل إلى جهاز آخر.</p>
+      <div class="btn-row">
+        <button type="button" class="btn" id="bk-save">حفظ نسخة</button>
+        <button type="button" class="btn" id="bk-load">استرجاع نسخة</button>
+        <button type="button" class="btn" id="bk-csv">تصدير الصفقات CSV</button>
+        <button type="button" class="btn" id="bk-copy">نسخ النسخة كنص</button>
+      </div>
+      <p class="hint" id="bk-msg" role="status"></p>
+      <input type="file" id="bk-file" accept=".json,application/json" hidden>
+      <textarea id="bk-text" class="input" rows="4" dir="ltr" readonly hidden aria-label="نص النسخة الاحتياطية"></textarea>
+
+      <h3>حذف البيانات</h3>
+      <div class="btn-row">
+        <button type="button" class="btn danger" id="st-wipe">حذف كل الصفقات والإعدادات</button>
+      </div>
+      <p class="form-error" id="st-error" role="alert" hidden></p>
+    </div>
+    <footer>
+      <button type="button" class="btn" data-close>إلغاء</button>
+      <button type="submit" class="btn primary">حفظ</button>
+    </footer>
+  </form>
+</dialog>
+
+<!-- استيراد أسعار -->
+<dialog class="dlg" id="dlg-csv" aria-labelledby="csv-h">
+  <form id="csv-form" novalidate autocomplete="off">
+    <header>
+      <h2 id="csv-h">استيراد أسعار من ملف</h2>
+      <button type="button" class="icon-btn ghost" data-close aria-label="إغلاق"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </header>
+    <div class="dlg-body form">
+      <p class="hint">لأي سوق: أسهم، فوركس، ذهب، مؤشرات. صدّر الأسعار التاريخية من منصتك (مثل TradingView أو Investing أو MetaTrader) كملف CSV فيه التاريخ والافتتاح والأعلى والأدنى والإغلاق.</p>
+      <div class="field">
+        <label for="csv-name">اسم الأصل</label>
+        <input id="csv-name" class="input" dir="ltr" maxlength="20" placeholder="XAUUSD" autocapitalize="characters" spellcheck="false">
+      </div>
+      <div class="field">
+        <label for="csv-file">الملف</label>
+        <input id="csv-file" class="input file" type="file" accept=".csv,.txt,text/csv,text/plain">
+      </div>
+      <div class="field">
+        <label for="csv-text">أو الصق محتوى الملف</label>
+        <textarea id="csv-text" class="input" rows="4" dir="ltr" spellcheck="false"></textarea>
+      </div>
+      <p class="form-error" id="csv-error" role="alert" hidden></p>
+    </div>
+    <footer>
+      <button type="button" class="btn" data-close>إلغاء</button>
+      <button type="submit" class="btn primary">استيراد</button>
+    </footer>
+  </form>
+</dialog>
+
+<!-- تأكيد -->
+<dialog class="dlg narrow" id="dlg-confirm" aria-labelledby="cf-text">
+  <form id="cf-form" novalidate>
+    <div class="dlg-body">
+      <p id="cf-text"></p>
+    </div>
+    <footer>
+      <button type="button" class="btn" data-close>تراجع</button>
+      <button type="submit" class="btn primary" id="cf-ok">تأكيد</button>
+    </footer>
+  </form>
+</dialog>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="core.js"></script>
+<script src="charts.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
